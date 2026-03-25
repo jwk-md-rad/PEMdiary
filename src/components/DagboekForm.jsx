@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { saveEntry, createLeegEntry } from '../utils/storage.js'
+import { useData } from '../contexts/DataContext.jsx'
+import { createLeegEntry } from '../utils/storage.js'
 import { SYMPTOOM_LABELS, vandaag } from '../utils/helpers.js'
 
 function SymptomenBlok({ waarden, onChange }) {
@@ -15,18 +16,41 @@ function SymptomenBlok({ waarden, onChange }) {
               waarden[key] <= 6 ? 'text-orange-500' : 'text-red-600'
             }`}>{waarden[key]}</span>
           </div>
-          <input
-            type="range" min="0" max="10" step="1"
+          <input type="range" min="0" max="10" step="1"
             value={waarden[key]}
             onChange={e => onChange({ ...waarden, [key]: Number(e.target.value) })}
-            className="slider-symptoom"
-          />
+            className="slider-symptoom" />
           <div className="flex justify-between text-xs text-slate-400 mt-0.5">
-            <span>0 Geen</span>
-            <span>10 Ernstig</span>
+            <span>0 Geen</span><span>10 Ernstig</span>
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function TellerInput({ label, eenheid, value, onChange, max = 15 }) {
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-1">
+        <label className="text-xs text-slate-600">{label}</label>
+        <span className="text-sm font-bold text-slate-700">{value} {eenheid}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <button type="button"
+          onClick={() => onChange(Math.max(0, value - 1))}
+          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-lg flex items-center justify-center transition-colors">
+          −
+        </button>
+        <input type="range" min="0" max={max} step="1" value={value}
+          onChange={e => onChange(Number(e.target.value))}
+          className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-slate-200" />
+        <button type="button"
+          onClick={() => onChange(Math.min(max, value + 1))}
+          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-lg flex items-center justify-center transition-colors">
+          +
+        </button>
+      </div>
     </div>
   )
 }
@@ -40,7 +64,6 @@ function ActiviteitRij({ activiteit, index, onChange, onVerwijder }) {
           Verwijder
         </button>
       </div>
-
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="label">Tijd</label>
@@ -59,7 +82,6 @@ function ActiviteitRij({ activiteit, index, onChange, onVerwijder }) {
           </select>
         </div>
       </div>
-
       <div className="mt-2">
         <label className="label">Activiteit</label>
         <input type="text" placeholder="Bijv. wandelen, e-mails lezen..."
@@ -67,7 +89,6 @@ function ActiviteitRij({ activiteit, index, onChange, onVerwijder }) {
           onChange={e => onChange({ ...activiteit, activiteit: e.target.value })}
           className="input-field" />
       </div>
-
       <div className="grid grid-cols-3 gap-2 mt-2">
         <div>
           <label className="label">Duur (min)</label>
@@ -88,7 +109,6 @@ function ActiviteitRij({ activiteit, index, onChange, onVerwijder }) {
             className="input-field" />
         </div>
       </div>
-
       <div className="mt-2">
         <div className="flex justify-between items-center mb-1">
           <label className="label mb-0">RPE (inspanningsperceptie)</label>
@@ -104,7 +124,6 @@ function ActiviteitRij({ activiteit, index, onChange, onVerwijder }) {
           <span>0 Rust</span><span>5 Matig</span><span>10 Maximaal</span>
         </div>
       </div>
-
       <div className="mt-2">
         <label className="label">Opmerkingen</label>
         <input type="text" placeholder="Bijv. orthostase, triggers..."
@@ -117,53 +136,45 @@ function ActiviteitRij({ activiteit, index, onChange, onVerwijder }) {
 }
 
 function nieuweActiviteit() {
-  return {
-    id: `act_${Date.now()}`,
-    tijd: '', type: 'fysiek', activiteit: '',
-    duur: '', rpe: 3, gemHR: '', maxHR: '', opmerkingen: '',
-  }
+  return { id: `act_${Date.now()}`, tijd: '', type: 'fysiek', activiteit: '', duur: '', rpe: 3, gemHR: '', maxHR: '', opmerkingen: '' }
 }
 
 export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
+  const { saveEntry } = useData()
   const [formData, setFormData] = useState(() =>
     entry ? JSON.parse(JSON.stringify(entry)) : createLeegEntry(vandaag())
   )
   const [activeTab, setActiveTab] = useState('activiteiten')
   const [opgeslagen, setOpgeslagen] = useState(false)
 
-  function updateNachtrust(field, value) {
-    setFormData(prev => ({ ...prev, nachtrust: { ...prev.nachtrust, [field]: value } }))
-  }
-
-  function updateExtra(field, value) {
-    setFormData(prev => ({ ...prev, extra: { ...prev.extra, [field]: value } }))
-  }
-
-  function updateSymptomen(waarden) {
-    setFormData(prev => ({ ...prev, symptomen: waarden }))
-  }
+  const update = (path, value) => setFormData(prev => {
+    const next = { ...prev }
+    const keys = path.split('.')
+    let obj = next
+    for (let i = 0; i < keys.length - 1; i++) obj = obj[keys[i]] = { ...obj[keys[i]] }
+    obj[keys[keys.length - 1]] = value
+    return next
+  })
 
   function voegActiviteitToe() {
     setFormData(prev => ({ ...prev, activiteiten: [...prev.activiteiten, nieuweActiviteit()] }))
   }
-
-  function updateActiviteit(index, updated) {
+  function updateActiviteit(i, updated) {
     setFormData(prev => {
       const activiteiten = [...prev.activiteiten]
-      activiteiten[index] = updated
+      activiteiten[i] = updated
       return { ...prev, activiteiten }
     })
   }
-
-  function verwijderActiviteit(index) {
-    setFormData(prev => ({ ...prev, activiteiten: prev.activiteiten.filter((_, i) => i !== index) }))
+  function verwijderActiviteit(i) {
+    setFormData(prev => ({ ...prev, activiteiten: prev.activiteiten.filter((_, j) => j !== i) }))
   }
 
   function handleOpslaan(e) {
     e.preventDefault()
     saveEntry(formData)
     setOpgeslagen(true)
-    setTimeout(() => onOpgeslagen(), 800)
+    setTimeout(onOpgeslagen, 800)
   }
 
   const tabs = [
@@ -175,9 +186,7 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-slate-900">
-          {entry ? 'Dag bijwerken' : 'Nieuwe dag'}
-        </h2>
+        <h2 className="text-lg font-bold text-slate-900">{entry ? 'Dag bijwerken' : 'Nieuwe dag'}</h2>
         <button onClick={onAnnuleren} className="text-slate-400 hover:text-slate-600">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -186,7 +195,6 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
       </div>
 
       <form onSubmit={handleOpslaan} className="space-y-4">
-        {/* Datum */}
         <div className="card">
           <label className="label">Datum</label>
           <input type="date" value={formData.datum} required
@@ -194,21 +202,18 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
             className="input-field" />
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
           {tabs.map(tab => (
             <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
+              className={`flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-colors ${
+                activeTab === tab.id ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
               }`}>
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Activiteiten & Slaap */}
+        {/* Tab 1: Activiteiten & Slaap */}
         {activeTab === 'activiteiten' && (
           <div className="space-y-4">
             <div className="card">
@@ -217,20 +222,20 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                 </svg>
-                Nachtrust
+                Nachtrust & ochtend
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="label">Slaapduur (uur)</label>
                   <input type="number" min="0" max="24" step="0.5" placeholder="7.5"
                     value={formData.nachtrust.duur}
-                    onChange={e => updateNachtrust('duur', e.target.value)}
+                    onChange={e => update('nachtrust.duur', e.target.value)}
                     className="input-field" />
                 </div>
                 <div>
                   <label className="label">Kwaliteit</label>
                   <select value={formData.nachtrust.kwaliteit}
-                    onChange={e => updateNachtrust('kwaliteit', e.target.value)}
+                    onChange={e => update('nachtrust.kwaliteit', e.target.value)}
                     className="input-field">
                     <option value="slecht">Slecht</option>
                     <option value="matig">Matig</option>
@@ -239,14 +244,23 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
                 </div>
                 <div>
                   <label className="label">Nacht-HR (gem.)</label>
-                  <input type="number" min="0" placeholder="—" value={formData.nachtrust.nachtHR}
-                    onChange={e => updateNachtrust('nachtHR', e.target.value)}
+                  <input type="number" min="0" placeholder="—"
+                    value={formData.nachtrust.nachtHR}
+                    onChange={e => update('nachtrust.nachtHR', e.target.value)}
                     className="input-field" />
                 </div>
                 <div>
                   <label className="label">HRV (Garmin)</label>
-                  <input type="number" min="0" placeholder="—" value={formData.nachtrust.hrv}
-                    onChange={e => updateNachtrust('hrv', e.target.value)}
+                  <input type="number" min="0" placeholder="—"
+                    value={formData.nachtrust.hrv}
+                    onChange={e => update('nachtrust.hrv', e.target.value)}
+                    className="input-field" />
+                </div>
+                <div className="col-span-2">
+                  <label className="label">Rust-HR ochtend (bpm)</label>
+                  <input type="number" min="0" placeholder="—"
+                    value={formData.extra.rustHROchtend}
+                    onChange={e => update('extra.rustHROchtend', e.target.value)}
                     className="input-field" />
                 </div>
               </div>
@@ -277,7 +291,7 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
           </div>
         )}
 
-        {/* Symptomen vanavond */}
+        {/* Tab 2: Symptomen */}
         {activeTab === 'symptomen' && (
           <div className="card">
             <h3 className="section-title">
@@ -292,14 +306,14 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
             </p>
             <SymptomenBlok
               waarden={formData.symptomen}
-              onChange={updateSymptomen}
+              onChange={w => setFormData(prev => ({ ...prev, symptomen: w }))}
             />
           </div>
         )}
 
-        {/* Extra */}
+        {/* Tab 3: Extra */}
         {activeTab === 'extra' && (
-          <div className="card space-y-4">
+          <div className="card space-y-5">
             <h3 className="section-title">
               <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -307,47 +321,43 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
               </svg>
               Extra gegevens
             </h3>
-            <div>
-              <label className="label">Rust-HR ochtend (bpm)</label>
-              <input type="number" min="0" placeholder="—" value={formData.extra.rustHROchtend}
-                onChange={e => updateExtra('rustHROchtend', e.target.value)}
-                className="input-field" />
-            </div>
+
+            <TellerInput
+              label="Cafeïne"
+              eenheid="kopjes"
+              value={formData.extra.cafeine}
+              onChange={v => update('extra.cafeine', v)}
+              max={12}
+            />
+
+            <TellerInput
+              label="Alcohol"
+              eenheid="eenheden"
+              value={formData.extra.alcohol}
+              onChange={v => update('extra.alcohol', v)}
+              max={10}
+            />
+
             <div>
               <label className="label">Medicatie / supplementen</label>
               <input type="text" placeholder="Bijv. LDN 4.5mg, magnesium..."
                 value={formData.extra.medicatie}
-                onChange={e => updateExtra('medicatie', e.target.value)}
+                onChange={e => update('extra.medicatie', e.target.value)}
                 className="input-field" />
             </div>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={formData.extra.cafeine}
-                  onChange={e => updateExtra('cafeine', e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600" />
-                <span className="text-sm text-slate-700">Cafeïne</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={formData.extra.alcohol}
-                  onChange={e => updateExtra('alcohol', e.target.checked)}
-                  className="w-4 h-4 rounded text-blue-600" />
-                <span className="text-sm text-slate-700">Alcohol</span>
-              </label>
-            </div>
+
             <div>
               <label className="label">Notities</label>
               <textarea rows={4} placeholder="Vrije notities, triggers, bijzonderheden..."
                 value={formData.extra.notities}
-                onChange={e => updateExtra('notities', e.target.value)}
+                onChange={e => update('extra.notities', e.target.value)}
                 className="input-field resize-none" />
             </div>
           </div>
         )}
 
         <div className="flex gap-3 pb-4">
-          <button type="button" onClick={onAnnuleren} className="btn-secondary flex-1">
-            Annuleren
-          </button>
+          <button type="button" onClick={onAnnuleren} className="btn-secondary flex-1">Annuleren</button>
           <button type="submit"
             className={`btn-primary flex-1 ${opgeslagen ? 'bg-green-600 hover:bg-green-600' : ''}`}>
             {opgeslagen ? '✓ Opgeslagen!' : 'Opslaan'}

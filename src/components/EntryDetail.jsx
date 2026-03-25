@@ -1,5 +1,6 @@
-import { SYMPTOOM_LABELS, formatDatum, formatDatumKort, symptoomBgKleur, symptoomKleur, gemSymptoomScore, KWALITEIT_LABELS } from '../utils/helpers.js'
+import { useData } from '../contexts/DataContext.jsx'
 import { berekenPEMpatronen } from '../utils/storage.js'
+import { SYMPTOOM_LABELS, formatDatum, symptoomBgKleur, symptoomKleur, gemSymptoomScore, KWALITEIT_LABELS } from '../utils/helpers.js'
 
 const TIMEPOINTS = [
   { key: 't0', label: 'Zelfde dag' },
@@ -16,7 +17,6 @@ function PEMKorrelatieTabel({ patroon }) {
       Log de volgende dagen ook om het PEM patroon te zien.
     </p>
   )
-
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
@@ -34,9 +34,8 @@ function PEMKorrelatieTabel({ patroon }) {
               <td className="text-slate-600 py-2 pr-3">{naam}</td>
               {aanwezig.map(tp => {
                 const waarde = patroon[tp.key]?.[k]
-                const t0waarde = patroon.t0?.[k]
-                const stijging = tp.key !== 't0' && waarde != null && t0waarde != null
-                  ? waarde - t0waarde : null
+                const stijging = tp.key !== 't0' && waarde != null && patroon.t0?.[k] != null
+                  ? waarde - patroon.t0[k] : null
                 return (
                   <td key={tp.key} className="text-center py-2 px-2">
                     <span className={`font-bold text-sm ${waarde != null ? symptoomKleur(waarde) : 'text-slate-300'}`}>
@@ -83,7 +82,7 @@ function PEMIndicator({ patroon }) {
   if (stijging <= 0) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-        <span className="text-green-500 text-lg">✓</span>
+        <span className="text-lg">✓</span>
         <div>
           <p className="text-xs font-semibold text-green-700">Geen PEM toename</p>
           <p className="text-xs text-green-600">Symptomen zijn niet gestegen na deze dag</p>
@@ -102,22 +101,17 @@ function PEMIndicator({ patroon }) {
     <div className={`${bg} border ${border} rounded-lg p-3 flex items-center gap-2`}>
       <span className="text-lg">{stijging <= 1 ? '⚠️' : '🔴'}</span>
       <div>
-        <p className={`text-xs font-semibold ${titleKleur}`}>
-          PEM toename: +{stijging} punten gemiddeld
-        </p>
-        <p className={`text-xs ${descKleur}`}>
-          Dag zelf: ∅{t0gem} → max later: ∅{maxGem}
-        </p>
+        <p className={`text-xs font-semibold ${titleKleur}`}>PEM toename: +{stijging} punten gemiddeld</p>
+        <p className={`text-xs ${descKleur}`}>Dag zelf: ∅{t0gem} → max later: ∅{maxGem}</p>
       </div>
     </div>
   )
 }
 
-export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
-  // Bereken het PEM patroon voor deze specifieke dag
-  const allePatronen = entries ? berekenPEMpatronen(entries) : []
-  const patroon = allePatronen.find(p => p.datum === entry.datum) || null
-
+export default function EntryDetail({ entry, onBewerken, onTerug }) {
+  const { entries } = useData()
+  const patronen = berekenPEMpatronen(entries)
+  const patroon = patronen.find(p => p.datum === entry.datum) || null
   const gem = gemSymptoomScore(entry.symptomen)
 
   return (
@@ -137,7 +131,6 @@ export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
         </button>
       </div>
 
-      {/* PEM indicator */}
       <PEMIndicator patroon={patroon} />
 
       {/* Symptomen vandaag */}
@@ -170,7 +163,7 @@ export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
         )}
       </div>
 
-      {/* PEM correlatie tabel */}
+      {/* PEM patroon */}
       <div className="card">
         <h3 className="section-title">
           <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -180,7 +173,7 @@ export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
           PEM patroon na deze dag
         </h3>
         <p className="text-xs text-slate-400 mb-3">
-          Symptomen van de volgende dagen — automatisch gekoppeld aan activiteiten van deze dag.
+          Symptomen van de volgende dagen — automatisch gekoppeld aan deze dag.
         </p>
         <PEMKorrelatieTabel patroon={patroon} />
       </div>
@@ -193,7 +186,7 @@ export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             </svg>
-            Nachtrust
+            Nachtrust & ochtend
           </h3>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
@@ -212,6 +205,12 @@ export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
               <p className="text-xs text-slate-400">HRV</p>
               <p className="font-semibold">{entry.nachtrust.hrv || '–'}</p>
             </div>
+            {entry.extra?.rustHROchtend && (
+              <div>
+                <p className="text-xs text-slate-400">Rust-HR ochtend</p>
+                <p className="font-semibold">{entry.extra.rustHROchtend} bpm</p>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -263,7 +262,7 @@ export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
       </div>
 
       {/* Extra */}
-      {entry.extra && (entry.extra.rustHROchtend || entry.extra.medicatie || entry.extra.cafeine || entry.extra.alcohol || entry.extra.notities) && (
+      {entry.extra && (entry.extra.cafeine > 0 || entry.extra.alcohol > 0 || entry.extra.medicatie || entry.extra.notities) && (
         <div className="card">
           <h3 className="section-title">
             <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -273,10 +272,16 @@ export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
             Extra
           </h3>
           <div className="space-y-2 text-sm">
-            {entry.extra.rustHROchtend && (
+            {entry.extra.cafeine > 0 && (
               <div className="flex justify-between">
-                <span className="text-slate-500">Rust-HR ochtend</span>
-                <span className="font-medium">{entry.extra.rustHROchtend} bpm</span>
+                <span className="text-slate-500">Cafeïne</span>
+                <span className="font-medium">{entry.extra.cafeine} kopjes</span>
+              </div>
+            )}
+            {entry.extra.alcohol > 0 && (
+              <div className="flex justify-between">
+                <span className="text-slate-500">Alcohol</span>
+                <span className="font-medium">{entry.extra.alcohol} eenheden</span>
               </div>
             )}
             {entry.extra.medicatie && (
@@ -285,10 +290,6 @@ export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
                 <span className="font-medium">{entry.extra.medicatie}</span>
               </div>
             )}
-            <div className="flex gap-3">
-              {entry.extra.cafeine && <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full">Cafeïne</span>}
-              {entry.extra.alcohol && <span className="bg-red-100 text-red-700 text-xs px-2 py-0.5 rounded-full">Alcohol</span>}
-            </div>
             {entry.extra.notities && (
               <div>
                 <p className="text-xs text-slate-400 mb-1">Notities</p>
