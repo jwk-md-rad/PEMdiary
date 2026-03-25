@@ -122,6 +122,11 @@ jobs:
           except urllib.error.HTTPError as e:
               body = e.read().decode()
               print(f"❌ Resend API fout {e.code}: {body}", file=sys.stderr)
+              if e.code == 403:
+                  print("", file=sys.stderr)
+                  print("💡 403 betekent: je stuurt naar een ander adres dan je Resend-account.", file=sys.stderr)
+                  print("   Oplossing: zet REMINDER_EMAIL op hetzelfde adres als je Resend-account,", file=sys.stderr)
+                  print("   of verifieer je eigen domein op resend.com/domains.", file=sys.stderr)
               sys.exit(1)
           except Exception as e:
               print(f"❌ Onverwachte fout: {e}", file=sys.stderr)
