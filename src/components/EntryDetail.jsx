@@ -1,17 +1,21 @@
-import { SYMPTOOM_LABELS, formatDatum, symptoomBgKleur, symptoomKleur, gemSymptoomScore, KWALITEIT_LABELS } from '../utils/helpers.js'
+import { SYMPTOOM_LABELS, formatDatum, formatDatumKort, symptoomBgKleur, symptoomKleur, gemSymptoomScore, KWALITEIT_LABELS } from '../utils/helpers.js'
+import { berekenPEMpatronen } from '../utils/storage.js'
 
 const TIMEPOINTS = [
-  { key: 't0', label: 'Avond (t=0)' },
+  { key: 't0', label: 'Zelfde dag' },
   { key: 't24', label: '+24 uur' },
   { key: 't48', label: '+48 uur' },
   { key: 't72', label: '+72 uur' },
 ]
 
-function SymptomenTabel({ symptomen }) {
-  const keys = Object.keys(SYMPTOOM_LABELS)
-  const aanwezig = TIMEPOINTS.filter(tp => symptomen[tp.key] !== null && symptomen[tp.key] !== undefined)
-
-  if (aanwezig.length === 0) return <p className="text-xs text-slate-400 italic">Nog geen symptomen ingevuld</p>
+function PEMKorrelatieTabel({ patroon }) {
+  if (!patroon) return null
+  const aanwezig = TIMEPOINTS.filter(tp => patroon[tp.key] !== null)
+  if (aanwezig.length < 2) return (
+    <p className="text-xs text-slate-400 italic">
+      Log de volgende dagen ook om het PEM patroon te zien.
+    </p>
+  )
 
   return (
     <div className="overflow-x-auto">
@@ -25,16 +29,24 @@ function SymptomenTabel({ symptomen }) {
           </tr>
         </thead>
         <tbody>
-          {keys.map(k => (
+          {Object.entries(SYMPTOOM_LABELS).map(([k, naam]) => (
             <tr key={k} className="border-b border-slate-50">
-              <td className="text-slate-600 py-2 pr-3">{SYMPTOOM_LABELS[k]}</td>
+              <td className="text-slate-600 py-2 pr-3">{naam}</td>
               {aanwezig.map(tp => {
-                const waarde = symptomen[tp.key]?.[k]
+                const waarde = patroon[tp.key]?.[k]
+                const t0waarde = patroon.t0?.[k]
+                const stijging = tp.key !== 't0' && waarde != null && t0waarde != null
+                  ? waarde - t0waarde : null
                 return (
                   <td key={tp.key} className="text-center py-2 px-2">
                     <span className={`font-bold text-sm ${waarde != null ? symptoomKleur(waarde) : 'text-slate-300'}`}>
                       {waarde != null ? waarde : '–'}
                     </span>
+                    {stijging !== null && stijging !== 0 && (
+                      <span className={`block text-xs ${stijging > 0 ? 'text-red-400' : 'text-green-500'}`}>
+                        {stijging > 0 ? `+${stijging}` : stijging}
+                      </span>
+                    )}
                   </td>
                 )
               })}
@@ -43,11 +55,11 @@ function SymptomenTabel({ symptomen }) {
           <tr className="border-t-2 border-slate-200">
             <td className="text-slate-600 font-semibold py-2 pr-3">Gemiddeld</td>
             {aanwezig.map(tp => {
-              const gem = gemSymptoomScore(symptomen[tp.key])
+              const gem = gemSymptoomScore(patroon[tp.key])
               return (
                 <td key={tp.key} className="text-center py-2 px-2">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${symptoomBgKleur(gem)}`}>
-                    {gem}
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${gem != null ? symptoomBgKleur(gem) : ''}`}>
+                    {gem ?? '–'}
                   </span>
                 </td>
               )
@@ -59,53 +71,54 @@ function SymptomenTabel({ symptomen }) {
   )
 }
 
-function PEMIndicator({ entry }) {
-  const t0gem = gemSymptoomScore(entry.symptomen?.t0)
-  const tps = ['t24', 't48', 't72']
-  const latere = tps.map(tp => ({ tp, gem: gemSymptoomScore(entry.symptomen?.[tp]) })).filter(x => x.gem !== null)
+function PEMIndicator({ patroon }) {
+  if (!patroon) return null
+  const t0gem = gemSymptoomScore(patroon.t0)
+  const latere = ['t24', 't48', 't72'].map(tp => patroon[tp]).filter(Boolean)
+  if (t0gem === null || latere.length === 0) return null
 
-  if (!t0gem || latere.length === 0) return null
+  const maxGem = Math.max(...latere.map(s => gemSymptoomScore(s)))
+  const stijging = Math.round((maxGem - t0gem) * 10) / 10
 
-  const maxStijging = Math.max(...latere.map(x => x.gem - t0gem))
-  const maxTp = latere.find(x => x.gem - t0gem === maxStijging)
-
-  if (maxStijging <= 0) {
+  if (stijging <= 0) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
         <span className="text-green-500 text-lg">✓</span>
         <div>
           <p className="text-xs font-semibold text-green-700">Geen PEM toename</p>
-          <p className="text-xs text-green-600">Symptomen zijn niet gestegen na activiteit</p>
+          <p className="text-xs text-green-600">Symptomen zijn niet gestegen na deze dag</p>
         </div>
       </div>
     )
   }
 
-  const kleur = maxStijging <= 1 ? 'yellow' : maxStijging <= 2 ? 'orange' : 'red'
-  const kleuren = {
-    yellow: 'bg-yellow-50 border-yellow-200 text-yellow-700 text-yellow-600',
-    orange: 'bg-orange-50 border-orange-200 text-orange-700 text-orange-600',
-    red: 'bg-red-50 border-red-200 text-red-700 text-red-600',
-  }
-  const [bg, border, title, desc] = kleuren[kleur].split(' ')
+  const [bg, border, titleKleur, descKleur] = stijging <= 1
+    ? ['bg-yellow-50', 'border-yellow-200', 'text-yellow-700', 'text-yellow-600']
+    : stijging <= 2
+    ? ['bg-orange-50', 'border-orange-200', 'text-orange-700', 'text-orange-600']
+    : ['bg-red-50', 'border-red-200', 'text-red-700', 'text-red-600']
 
   return (
     <div className={`${bg} border ${border} rounded-lg p-3 flex items-center gap-2`}>
-      <span className="text-lg">{kleur === 'yellow' ? '⚠️' : '🔴'}</span>
+      <span className="text-lg">{stijging <= 1 ? '⚠️' : '🔴'}</span>
       <div>
-        <p className={`text-xs font-semibold ${title}`}>
-          PEM toename: +{maxStijging} punten op {maxTp?.tp.replace('t', '+')}u
+        <p className={`text-xs font-semibold ${titleKleur}`}>
+          PEM toename: +{stijging} punten gemiddeld
         </p>
-        <p className={`text-xs ${desc}`}>
-          t=0: {t0gem} → max: {Math.max(...latere.map(x => x.gem))} gemiddeld
+        <p className={`text-xs ${descKleur}`}>
+          Dag zelf: ∅{t0gem} → max later: ∅{maxGem}
         </p>
       </div>
     </div>
   )
 }
 
-export default function EntryDetail({ entry, onBewerken, onTerug }) {
-  const heeftOntbrekendeTps = TIMEPOINTS.some(tp => tp.key !== 't0' && entry.symptomen[tp.key] === null)
+export default function EntryDetail({ entry, entries, onBewerken, onTerug }) {
+  // Bereken het PEM patroon voor deze specifieke dag
+  const allePatronen = entries ? berekenPEMpatronen(entries) : []
+  const patroon = allePatronen.find(p => p.datum === entry.datum) || null
+
+  const gem = gemSymptoomScore(entry.symptomen)
 
   return (
     <div className="p-4 space-y-4">
@@ -119,34 +132,58 @@ export default function EntryDetail({ entry, onBewerken, onTerug }) {
         <div className="flex-1">
           <h2 className="text-base font-bold text-slate-900">{formatDatum(entry.datum)}</h2>
         </div>
-        <button
-          onClick={() => onBewerken(entry, null)}
-          className="btn-secondary text-sm py-1.5"
-        >
+        <button onClick={() => onBewerken(entry)} className="btn-secondary text-sm py-1.5">
           Bewerken
         </button>
       </div>
 
       {/* PEM indicator */}
-      <PEMIndicator entry={entry} />
+      <PEMIndicator patroon={patroon} />
 
-      {/* Follow-up knoppen */}
-      {heeftOntbrekendeTps && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-3">
-          <p className="text-xs font-semibold text-orange-700 mb-2">Symptomen aanvullen:</p>
-          <div className="flex gap-2 flex-wrap">
-            {TIMEPOINTS.filter(tp => tp.key !== 't0' && entry.symptomen[tp.key] === null).map(tp => (
-              <button
-                key={tp.key}
-                onClick={() => onBewerken(entry, { timepoint: tp.key, label: tp.label })}
-                className="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-orange-600"
-              >
-                + {tp.label}
-              </button>
+      {/* Symptomen vandaag */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="section-title mb-0">
+            <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Symptomen deze avond
+          </h3>
+          {gem !== null && (
+            <span className={`text-xs font-bold px-2 py-1 rounded-lg ${symptoomBgKleur(gem)}`}>∅ {gem}</span>
+          )}
+        </div>
+        {entry.symptomen ? (
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(SYMPTOOM_LABELS).map(([k, naam]) => (
+              <div key={k} className="flex justify-between items-center py-1 border-b border-slate-50">
+                <span className="text-xs text-slate-500">{naam}</span>
+                <span className={`text-sm font-bold ${symptoomKleur(entry.symptomen[k])}`}>
+                  {entry.symptomen[k]}
+                </span>
+              </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-xs text-slate-400 italic">Geen symptomen ingevuld</p>
+        )}
+      </div>
+
+      {/* PEM correlatie tabel */}
+      <div className="card">
+        <h3 className="section-title">
+          <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+          PEM patroon na deze dag
+        </h3>
+        <p className="text-xs text-slate-400 mb-3">
+          Symptomen van de volgende dagen — automatisch gekoppeld aan activiteiten van deze dag.
+        </p>
+        <PEMKorrelatieTabel patroon={patroon} />
+      </div>
 
       {/* Nachtrust */}
       {entry.nachtrust && (
@@ -187,7 +224,7 @@ export default function EntryDetail({ entry, onBewerken, onTerug }) {
           </svg>
           Activiteiten ({entry.activiteiten?.length || 0})
         </h3>
-        {entry.activiteiten?.length === 0 ? (
+        {!entry.activiteiten?.length ? (
           <p className="text-xs text-slate-400 italic">Geen activiteiten gelogd</p>
         ) : (
           <div className="space-y-2">
@@ -225,18 +262,6 @@ export default function EntryDetail({ entry, onBewerken, onTerug }) {
         )}
       </div>
 
-      {/* Symptomen tabel */}
-      <div className="card">
-        <h3 className="section-title">
-          <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          Symptomen (0–10 schaal)
-        </h3>
-        <SymptomenTabel symptomen={entry.symptomen} />
-      </div>
-
       {/* Extra */}
       {entry.extra && (entry.extra.rustHROchtend || entry.extra.medicatie || entry.extra.cafeine || entry.extra.alcohol || entry.extra.notities) && (
         <div className="card">
@@ -257,7 +282,7 @@ export default function EntryDetail({ entry, onBewerken, onTerug }) {
             {entry.extra.medicatie && (
               <div className="flex justify-between">
                 <span className="text-slate-500">Medicatie</span>
-                <span className="font-medium text-right max-w-48 break-words">{entry.extra.medicatie}</span>
+                <span className="font-medium">{entry.extra.medicatie}</span>
               </div>
             )}
             <div className="flex gap-3">
@@ -274,9 +299,7 @@ export default function EntryDetail({ entry, onBewerken, onTerug }) {
         </div>
       )}
 
-      <button onClick={onTerug} className="btn-secondary w-full">
-        Terug naar overzicht
-      </button>
+      <button onClick={onTerug} className="btn-secondary w-full">Terug naar overzicht</button>
     </div>
   )
 }

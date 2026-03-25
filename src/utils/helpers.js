@@ -60,12 +60,11 @@ export function gemSymptoomScore(symptomen) {
   return Math.round((waarden.reduce((a, b) => a + b, 0) / waarden.length) * 10) / 10
 }
 
-export function maxPEMStijging(entry) {
-  const t0 = entry.symptomen?.t0
-  const latere = [entry.symptomen?.t24, entry.symptomen?.t48, entry.symptomen?.t72].filter(Boolean)
-  if (!t0 || latere.length === 0) return null
-
-  const t0gem = gemSymptoomScore(t0)
+// patroon = { t0, t24, t48, t72 } berekend via berekenPEMpatronen()
+export function maxPEMStijging(patroon) {
+  const t0gem = gemSymptoomScore(patroon?.t0)
+  const latere = [patroon?.t24, patroon?.t48, patroon?.t72].filter(Boolean)
+  if (t0gem === null || latere.length === 0) return null
   const maxLater = Math.max(...latere.map(s => gemSymptoomScore(s)))
   return Math.round((maxLater - t0gem) * 10) / 10
 }

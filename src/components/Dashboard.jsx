@@ -1,34 +1,26 @@
 import { useState, useEffect } from 'react'
-import { getEntries, getFollowUpEntries } from '../utils/storage.js'
-import { formatDatum, formatDatumKort, symptoomBgKleur, gemSymptoomScore, SYMPTOOM_LABELS, vandaag } from '../utils/helpers.js'
+import { getEntries, berekenPEMpatronen } from '../utils/storage.js'
+import { formatDatum, formatDatumKort, symptoomBgKleur, gemSymptoomScore, SYMPTOOM_LABELS, vandaag, maxPEMStijging } from '../utils/helpers.js'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-
-function SymptoomBadge({ waarde, label }) {
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${symptoomBgKleur(waarde)}`}>
-      {label}: {waarde}
-    </span>
-  )
-}
 
 function MiniTrendChart({ entries }) {
   if (entries.length < 2) return null
 
   const data = entries.slice(0, 14).reverse().map(e => ({
     datum: formatDatumKort(e.datum),
-    vermoeidheid: e.symptomen?.t0?.vermoeidheid ?? null,
-    brainFog: e.symptomen?.t0?.brainFog ?? null,
-    pijn: e.symptomen?.t0?.pijn ?? null,
+    vermoeidheid: e.symptomen?.vermoeidheid ?? null,
+    brainFog: e.symptomen?.brainFog ?? null,
+    pijn: e.symptomen?.pijn ?? null,
   }))
 
   return (
     <div className="card">
-      <h3 className="section-title text-sm mb-2">
+      <h3 className="text-sm font-semibold text-slate-800 mb-2 flex items-center gap-2">
         <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
-        Symptomen – laatste 14 dagen (avond t=0)
+        Symptomen – laatste 14 dagen
       </h3>
       <ResponsiveContainer width="100%" height={130}>
         <LineChart data={data} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
@@ -56,73 +48,49 @@ function MiniTrendChart({ entries }) {
   )
 }
 
-function FollowUpKaart({ followUp, onBewerken }) {
-  const { entry, label } = followUp
-  return (
-    <div className="border border-orange-200 bg-orange-50 rounded-xl p-3 flex items-center gap-3">
-      <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-        <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-orange-700">{formatDatumKort(entry.datum)} – symptomen {label}</p>
-        <p className="text-xs text-orange-600 truncate">{entry.activiteiten.length} activiteit(en)</p>
-      </div>
-      <button
-        onClick={() => onBewerken(entry, followUp)}
-        className="text-xs bg-orange-500 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-orange-600 flex-shrink-0"
-      >
-        Invullen
-      </button>
-    </div>
-  )
-}
-
-function RecenteEntryKaart({ entry, onDetail }) {
-  const t0 = entry.symptomen?.t0
-  const gem = t0 ? gemSymptoomScore(t0) : null
-  const heeftActiviteiten = entry.activiteiten?.length > 0
+function RecenteEntryKaart({ entry, patroon, onDetail }) {
+  const gem = gemSymptoomScore(entry.symptomen)
+  const pemStijging = patroon ? maxPEMStijging(patroon) : null
 
   return (
-    <button
-      onClick={() => onDetail(entry)}
-      className="card w-full text-left hover:border-blue-300 hover:shadow-md transition-all"
-    >
+    <button onClick={() => onDetail(entry)}
+      className="card w-full text-left hover:border-blue-300 hover:shadow-md transition-all">
       <div className="flex items-start justify-between mb-2">
         <div>
           <p className="text-sm font-semibold text-slate-900">{formatDatumKort(entry.datum)}</p>
-          <p className="text-xs text-slate-400">{heeftActiviteiten ? `${entry.activiteiten.length} activiteit(en)` : 'Geen activiteiten'}</p>
+          <p className="text-xs text-slate-400">
+            {entry.activiteiten?.length
+              ? `${entry.activiteiten.length} activiteit(en)`
+              : 'Geen activiteiten'}
+          </p>
         </div>
-        {gem !== null && (
-          <span className={`text-sm font-bold px-2 py-0.5 rounded-lg ${symptoomBgKleur(gem)}`}>
-            ∅ {gem}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {pemStijging !== null && pemStijging > 0 && (
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+              pemStijging <= 1 ? 'bg-yellow-100 text-yellow-700' :
+              pemStijging <= 2 ? 'bg-orange-100 text-orange-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              PEM +{pemStijging}
+            </span>
+          )}
+          {gem !== null && (
+            <span className={`text-sm font-bold px-2 py-0.5 rounded-lg ${symptoomBgKleur(gem)}`}>
+              ∅ {gem}
+            </span>
+          )}
+        </div>
       </div>
 
-      {t0 && (
-        <div className="flex flex-wrap gap-1">
-          <SymptoomBadge waarde={t0.vermoeidheid} label="Moe" />
-          <SymptoomBadge waarde={t0.brainFog} label="Fog" />
-          <SymptoomBadge waarde={t0.pijn} label="Pijn" />
-          {entry.symptomen.t24 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">+24u ✓</span>
-          )}
-          {entry.symptomen.t48 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">+48u ✓</span>
-          )}
-          {entry.symptomen.t72 && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium">+72u ✓</span>
+      {entry.symptomen && (
+        <div className="flex gap-2 text-xs text-slate-500">
+          <span>Moe: <strong className={gem <= 2 ? 'text-green-600' : gem <= 4 ? 'text-yellow-600' : 'text-red-600'}>{entry.symptomen.vermoeidheid}</strong></span>
+          <span>Fog: <strong>{entry.symptomen.brainFog}</strong></span>
+          <span>Pijn: <strong>{entry.symptomen.pijn}</strong></span>
+          {entry.nachtrust?.duur && (
+            <span className="ml-auto">Slaap: {entry.nachtrust.duur}u</span>
           )}
         </div>
-      )}
-
-      {entry.nachtrust?.kwaliteit && (
-        <p className="text-xs text-slate-400 mt-1">
-          Slaap: {entry.nachtrust.duur ? `${entry.nachtrust.duur}u` : '?'} ({entry.nachtrust.kwaliteit})
-        </p>
       )}
     </button>
   )
@@ -130,12 +98,13 @@ function RecenteEntryKaart({ entry, onDetail }) {
 
 export default function Dashboard({ onNieuw, onBewerken, onDetail }) {
   const [entries, setEntries] = useState([])
-  const [followUps, setFollowUps] = useState([])
+  const [patronen, setPatronen] = useState([])
   const today = vandaag()
 
   useEffect(() => {
-    setEntries(getEntries())
-    setFollowUps(getFollowUpEntries())
+    const e = getEntries()
+    setEntries(e)
+    setPatronen(berekenPEMpatronen(e))
   }, [])
 
   const heeftVandaag = entries.some(e => e.datum === today)
@@ -147,30 +116,13 @@ export default function Dashboard({ onNieuw, onBewerken, onDetail }) {
       <div className="card bg-gradient-to-br from-blue-600 to-blue-700 border-0 text-white">
         <p className="text-blue-100 text-xs mb-1">{formatDatum(today)}</p>
         <h2 className="text-lg font-bold mb-3">
-          {heeftVandaag ? 'Dag al gelogd' : 'Goede dag vandaag!'}
+          {heeftVandaag ? 'Dag al gelogd' : 'Goede dag!'}
         </h2>
-        <button
-          onClick={onNieuw}
-          className="bg-white text-blue-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors w-full"
-        >
+        <button onClick={onNieuw}
+          className="bg-white text-blue-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors w-full">
           {heeftVandaag ? '+ Extra entry toevoegen' : '+ Nieuwe dag loggen'}
         </button>
       </div>
-
-      {/* Follow-up herinneringen */}
-      {followUps.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 bg-orange-400 rounded-full" />
-            Nog in te vullen ({followUps.length})
-          </h3>
-          <div className="space-y-2">
-            {followUps.map((fu, i) => (
-              <FollowUpKaart key={i} followUp={fu} onBewerken={onBewerken} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Mini trend chart */}
       {entries.length >= 2 && <MiniTrendChart entries={entries} />}
@@ -180,9 +132,12 @@ export default function Dashboard({ onNieuw, onBewerken, onDetail }) {
         <div>
           <h3 className="text-sm font-semibold text-slate-700 mb-2">Recente dagen</h3>
           <div className="space-y-2">
-            {recenteEntries.map(entry => (
-              <RecenteEntryKaart key={entry.id} entry={entry} onDetail={onDetail} />
-            ))}
+            {recenteEntries.map(entry => {
+              const patroon = patronen.find(p => p.datum === entry.datum)
+              return (
+                <RecenteEntryKaart key={entry.id} entry={entry} patroon={patroon} onDetail={onDetail} />
+              )
+            })}
           </div>
         </div>
       )}

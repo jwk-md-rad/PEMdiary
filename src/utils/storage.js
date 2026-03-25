@@ -1,9 +1,18 @@
 const STORAGE_KEY = 'pemdiary_entries'
 
+function migreerEntry(entry) {
+  // Oud formaat had symptomen.t0, symptomen.t24, etc. — migreer naar plat formaat
+  if (entry.symptomen && entry.symptomen.t0 !== undefined) {
+    return { ...entry, symptomen: entry.symptomen.t0 || legeSymptomen() }
+  }
+  return entry
+}
+
 export function getEntries() {
   try {
     const data = localStorage.getItem(STORAGE_KEY)
-    return data ? JSON.parse(data) : []
+    const entries = data ? JSON.parse(data) : []
+    return entries.map(migreerEntry)
   } catch {
     return []
   }
@@ -49,12 +58,7 @@ export function createLeegEntry(datum) {
       hrv: '',
     },
     activiteiten: [],
-    symptomen: {
-      t0: legeSymptomen(),
-      t24: null,
-      t48: null,
-      t72: null,
-    },
+    symptomen: legeSymptomen(),
     extra: {
       rustHROchtend: '',
       medicatie: '',
@@ -75,25 +79,24 @@ export function legeSymptomen() {
   }
 }
 
-export function getFollowUpEntries() {
-  const entries = getEntries()
-  const today = new Date()
-  const result = []
+function addDagen(datum, n) {
+  const d = new Date(datum)
+  d.setDate(d.getDate() + n)
+  return d.toISOString().split('T')[0]
+}
 
-  for (const entry of entries) {
-    const entryDate = new Date(entry.datum)
-    const diffDays = Math.round((today - entryDate) / (1000 * 60 * 60 * 24))
+// Berekent voor elke dag de symptomen op t=0, +24u, +48u, +72u
+// door de symptomen van de volgende dagen op te zoeken
+export function berekenPEMpatronen(entries) {
+  const byDatum = {}
+  entries.forEach(e => { byDatum[e.datum] = e })
 
-    if (diffDays === 1 && !entry.symptomen.t24) {
-      result.push({ entry, timepoint: 't24', label: '+24u', diffDays })
-    }
-    if (diffDays === 2 && !entry.symptomen.t48) {
-      result.push({ entry, timepoint: 't48', label: '+48u', diffDays })
-    }
-    if (diffDays === 3 && !entry.symptomen.t72) {
-      result.push({ entry, timepoint: 't72', label: '+72u', diffDays })
-    }
-  }
-
-  return result
+  return entries.map(e => ({
+    datum: e.datum,
+    activiteiten: e.activiteiten || [],
+    t0: e.symptomen || null,
+    t24: byDatum[addDagen(e.datum, 1)]?.symptomen || null,
+    t48: byDatum[addDagen(e.datum, 2)]?.symptomen || null,
+    t72: byDatum[addDagen(e.datum, 3)]?.symptomen || null,
+  }))
 }

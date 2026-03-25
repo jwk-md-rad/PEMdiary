@@ -11,22 +11,21 @@ export default function App() {
   const [view, setView] = useState('dashboard')
   const [editEntry, setEditEntry] = useState(null)
   const [detailEntry, setDetailEntry] = useState(null)
-  const [followUpInfo, setFollowUpInfo] = useState(null)
   const [entriesVersion, setEntriesVersion] = useState(0)
+  const [allEntries, setAllEntries] = useState(() => getEntries())
 
   const refreshEntries = useCallback(() => {
     setEntriesVersion(v => v + 1)
+    setAllEntries(getEntries())
   }, [])
 
   function naarNieuw() {
     setEditEntry(null)
-    setFollowUpInfo(null)
     setView('nieuw')
   }
 
-  function naarBewerken(entry, followUp = null) {
+  function naarBewerken(entry) {
     setEditEntry(entry)
-    setFollowUpInfo(followUp)
     setView('nieuw')
   }
 
@@ -39,7 +38,6 @@ export default function App() {
     setView('dashboard')
     setEditEntry(null)
     setDetailEntry(null)
-    setFollowUpInfo(null)
     refreshEntries()
   }
 
@@ -70,7 +68,6 @@ export default function App() {
         {view === 'nieuw' && (
           <DagboekForm
             entry={editEntry}
-            followUpInfo={followUpInfo}
             onOpgeslagen={naarDashboard}
             onAnnuleren={naarDashboard}
           />
@@ -88,7 +85,8 @@ export default function App() {
         {view === 'detail' && detailEntry && (
           <EntryDetail
             entry={detailEntry}
-            onBewerken={(e, fu) => naarBewerken(e, fu)}
+            entries={allEntries}
+            onBewerken={naarBewerken}
             onTerug={naarDashboard}
           />
         )}

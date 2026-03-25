@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getEntries } from '../utils/storage.js'
+import { getEntries, berekenPEMpatronen } from '../utils/storage.js'
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, Legend,
   ResponsiveContainer, CartesianGrid, ReferenceLine, ScatterChart, Scatter,
@@ -47,14 +47,14 @@ function SymptoomTrendChart({ entries, geselecteerde }) {
   const data = entries.slice().reverse().map(e => {
     const row = { datum: formatDatumKort(e.datum) }
     SYMPTOOM_KEYS.forEach(k => {
-      row[k] = e.symptomen?.t0?.[k] ?? null
+      row[k] = e.symptomen?.[k] ?? null
     })
     return row
   })
 
   return (
     <GrafiekKaart
-      titel="Symptoom trends (avond t=0)"
+      titel="Symptoom trends per avond"
       beschrijving="Hoe je je elke avond voelt"
     >
       <ResponsiveContainer width="100%" height={200}>
@@ -85,16 +85,17 @@ function SymptoomTrendChart({ entries, geselecteerde }) {
   )
 }
 
-// Chart 2: PEM patroon (gemiddeld t0/t24/t48/t72 per symptoom)
+// Chart 2: PEM patroon (gemiddeld t0/t24/t48/t72 per symptoom) — berekend via volgende-dag entries
 function PEMPatroonChart({ entries }) {
+  const patronen = berekenPEMpatronen(entries)
   const timepoints = ['t0', 't24', 't48', 't72']
-  const tpLabels = { t0: 'Avond', t24: '+24u', t48: '+48u', t72: '+72u' }
+  const tpLabels = { t0: 'Zelfde dag', t24: '+24u', t48: '+48u', t72: '+72u' }
 
   const data = timepoints.map(tp => {
     const row = { tp: tpLabels[tp] }
     SYMPTOOM_KEYS.forEach(k => {
-      const waarden = entries
-        .map(e => e.symptomen?.[tp]?.[k])
+      const waarden = patronen
+        .map(p => p[tp]?.[k])
         .filter(v => v !== null && v !== undefined)
       row[k] = waarden.length > 0
         ? Math.round((waarden.reduce((a, b) => a + b, 0) / waarden.length) * 10) / 10
@@ -140,7 +141,7 @@ function PEMPatroonChart({ entries }) {
 function BelastingChart({ entries }) {
   const data = entries.slice().reverse().map(e => {
     const belasting = berekenBelasting(e.activiteiten)
-    const gem = gemSymptoomScore(e.symptomen?.t0) ?? 0
+    const gem = gemSymptoomScore(e.symptomen) ?? 0
     return {
       datum: formatDatumKort(e.datum),
       belasting: Math.round(belasting),
@@ -224,15 +225,15 @@ function SlaapChart({ entries }) {
   )
 }
 
-// Chart 5: Radar - gemiddeld symptoom profiel
+// Chart 5: Radar - gemiddeld symptoom profiel via PEM patronen
 function RadarProfielChart({ entries }) {
+  const patronen = berekenPEMpatronen(entries)
   const timepoints = ['t0', 't24', 't72']
-  const tpLabels = { t0: 'Avond', t24: '+24u', t72: '+72u' }
 
   const data = SYMPTOOM_KEYS.map(k => {
     const row = { symptoom: SYMPTOOM_LABELS[k].split('/')[0].split(' ')[0] }
     timepoints.forEach(tp => {
-      const waarden = entries.map(e => e.symptomen?.[tp]?.[k]).filter(v => v != null)
+      const waarden = patronen.map(p => p[tp]?.[k]).filter(v => v != null)
       row[tp] = waarden.length > 0
         ? Math.round((waarden.reduce((a, b) => a + b, 0) / waarden.length) * 10) / 10
         : 0

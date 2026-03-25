@@ -4,8 +4,7 @@ import { formatDatum, formatDatumKort, symptoomBgKleur, gemSymptoomScore, SYMPTO
 
 function EntryRij({ entry, onDetail, onBewerken, onVerwijder }) {
   const [bevestigVerwijder, setBevestigVerwijder] = useState(false)
-  const t0 = entry.symptomen?.t0
-  const gem = t0 ? gemSymptoomScore(t0) : null
+  const gem = gemSymptoomScore(entry.symptomen)
   const totalDuur = entry.activiteiten?.reduce((sum, a) => sum + (Number(a.duur) || 0), 0) || 0
 
   return (
@@ -14,7 +13,8 @@ function EntryRij({ entry, onDetail, onBewerken, onVerwijder }) {
         <button onClick={() => onDetail(entry)} className="text-left flex-1">
           <p className="text-sm font-semibold text-slate-900">{formatDatum(entry.datum)}</p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {entry.activiteiten?.length || 0} activiteit(en) · {totalDuur} min totaal
+            {entry.activiteiten?.length || 0} activiteit(en) · {totalDuur} min
+            {entry.nachtrust?.duur ? ` · slaap ${entry.nachtrust.duur}u` : ''}
           </p>
         </button>
         {gem !== null && (
@@ -23,31 +23,6 @@ function EntryRij({ entry, onDetail, onBewerken, onVerwijder }) {
           </span>
         )}
       </div>
-
-      {/* Symptomen tijdpunten */}
-      {t0 && (
-        <div className="grid grid-cols-5 gap-1 mb-3">
-          {['t0', 't24', 't48', 't72'].map(tp => {
-            const s = entry.symptomen[tp]
-            const tpLabel = tp === 't0' ? 'Avond' : tp === 't24' ? '+24u' : tp === 't48' ? '+48u' : '+72u'
-            const gem = s ? gemSymptoomScore(s) : null
-            return (
-              <div key={tp} className={`text-center p-1.5 rounded-lg ${s ? 'bg-slate-50' : 'bg-slate-50 opacity-40'}`}>
-                <p className="text-xs text-slate-400">{tpLabel}</p>
-                <p className={`text-sm font-bold ${s ? symptoomBgKleur(gem).split(' ')[1] : 'text-slate-300'}`}>
-                  {gem !== null ? gem : '–'}
-                </p>
-              </div>
-            )
-          })}
-          <div className="text-center p-1.5 rounded-lg bg-slate-50">
-            <p className="text-xs text-slate-400">Slaap</p>
-            <p className="text-sm font-bold text-slate-600">
-              {entry.nachtrust?.duur ? `${entry.nachtrust.duur}u` : '–'}
-            </p>
-          </div>
-        </div>
-      )}
 
       <div className="flex gap-2">
         <button
