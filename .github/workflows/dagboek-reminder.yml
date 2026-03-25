@@ -1,0 +1,106 @@
+name: Dagboek herinnering
+
+on:
+  schedule:
+    - cron: '0 18 * * *'  # 19:00 Nederlandse tijd (UTC+1 CET, UTC+2 CEST)
+  workflow_dispatch:        # ook handmatig te starten via Actions tab (handig voor testen)
+
+jobs:
+  stuur-herinnering:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stuur dagelijkse reminder via Resend
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NAAR_EMAIL: ${{ secrets.REMINDER_EMAIL }}
+        run: |
+          python3 << 'EOF'
+          import json, os, urllib.request, datetime
+
+          DAGEN = ['maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag','zondag']
+          MAANDEN = ['januari','februari','maart','april','mei','juni',
+                     'juli','augustus','september','oktober','november','december']
+
+          now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=1)))
+          datum = f"{DAGEN[now.weekday()]} {now.day} {MAANDEN[now.month-1]} {now.year}"
+
+          html = f"""<!DOCTYPE html>
+          <html lang="nl">
+          <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 16px;">
+              <tr><td align="center">
+                <table width="480" cellpadding="0" cellspacing="0"
+                  style="background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;max-width:480px;">
+
+                  <tr>
+                    <td style="background:linear-gradient(135deg,#1d4ed8,#2563eb);padding:28px 32px;text-align:center;">
+                      <p style="margin:0 0 8px;font-size:32px;">📋</p>
+                      <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">PEM Dagboek</h1>
+                      <p style="margin:6px 0 0;color:#bfdbfe;font-size:14px;">Dagelijkse herinnering</p>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding:32px;">
+                      <p style="margin:0 0 4px;color:#64748b;font-size:12px;text-transform:uppercase;
+                                letter-spacing:0.06em;font-weight:600;">VANDAAG</p>
+                      <p style="margin:0 0 20px;color:#0f172a;font-size:18px;font-weight:700;">{datum}</p>
+
+                      <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
+                        Log je activiteiten en hoe je je vanavond voelt — het duurt maar 2 minuten.
+                      </p>
+
+                      <table width="100%" cellpadding="0" cellspacing="0"
+                        style="background:#f1f5f9;border-radius:10px;padding:16px 20px;margin-bottom:28px;">
+                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">🌙&nbsp; Slaap &amp; ochtend-HR</td></tr>
+                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">⚡&nbsp; Activiteiten (type, duur, RPE, HR)</td></tr>
+                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">🩺&nbsp; Symptomen vanavond (0–10)</td></tr>
+                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">☕&nbsp; Cafeïne, alcohol, medicatie</td></tr>
+                      </table>
+
+                      <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr><td align="center">
+                          <a href="https://jwk-md-rad.github.io/PEMdiary/"
+                             style="display:inline-block;background:#2563eb;color:#ffffff;
+                                    padding:14px 40px;border-radius:10px;text-decoration:none;
+                                    font-size:15px;font-weight:700;">
+                            Dagboek openen &rarr;
+                          </a>
+                        </td></tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="background:#f8fafc;border-top:1px solid #e2e8f0;
+                               padding:16px 32px;text-align:center;">
+                      <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;">
+                        Automatische herinnering · PEM Dagboek<br>
+                        Je data is AES-256 versleuteld en alleen leesbaar met jouw wachtwoord.
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td></tr>
+            </table>
+          </body></html>"""
+
+          payload = json.dumps({
+            "from": "PEM Dagboek <onboarding@resend.dev>",
+            "to": [os.environ["NAAR_EMAIL"]],
+            "subject": f"📋 PEM Dagboek – vul {datum} in",
+            "html": html
+          }).encode()
+
+          req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={
+              "Authorization": f"Bearer {os.environ['RESEND_API_KEY']}",
+              "Content-Type": "application/json"
+            }
+          )
+          with urllib.request.urlopen(req) as r:
+            print("Verstuurd:", r.status, r.read().decode())
+          EOF
