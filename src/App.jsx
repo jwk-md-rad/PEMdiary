@@ -93,7 +93,7 @@ export default function App() {
         appId: settings.onesignalAppId,
         allowLocalhostAsSecureOrigin: true,
         notifyButton: { enable: false },
-        serviceWorkerPath: '/PEMdiary/sw.js',
+        serviceWorkerPath: '/PEMdiary/OneSignalSDKWorker.js',
       })
     })
   }, [])
