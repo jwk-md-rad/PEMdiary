@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { loadSettings, saveSettings, resetAll } from '../utils/crypto.js'
 
 function Sectie({ titel, children }) {
@@ -33,103 +33,14 @@ export default function Settings({ onUitloggen }) {
 
   return (
     <div className="px-4 pt-4 pb-28 space-y-5">
-      {/* Push-notificaties via OneSignal */}
-      <Sectie titel="Push-notificaties (OneSignal)">
-        <div className="space-y-3">
-          <div>
-            <label className="label">OneSignal App ID</label>
-            <input
-              type="text"
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              value={settings.onesignalAppId}
-              onChange={e => sla('onesignalAppId', e.target.value)}
-              className="input-field font-mono text-sm"
-            />
-          </div>
-
-          {/* Stappenplan */}
-          <details className="bg-blue-50 border border-blue-200 rounded-xl overflow-hidden">
-            <summary className="px-4 py-3 text-sm font-semibold text-blue-800 cursor-pointer select-none flex items-center gap-2">
-              <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Hoe stel ik OneSignal in? (±10 min, gratis)
-            </summary>
-            <div className="px-4 pb-4 space-y-3 text-sm text-blue-900">
-              <ol className="space-y-3 list-none">
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
-                  <div>
-                    <p className="font-semibold">Maak een gratis account aan</p>
-                    <p className="text-xs text-blue-700">Ga naar <span className="font-mono bg-blue-100 px-1 rounded">onesignal.com</span> en registreer je (gratis plan is voldoende).</p>
-                  </div>
-                </li>
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">2</span>
-                  <div>
-                    <p className="font-semibold">Nieuwe app aanmaken</p>
-                    <p className="text-xs text-blue-700">Klik op <em>New App/Website</em>. Geef het een naam (bijv. "PEMdiary").</p>
-                  </div>
-                </li>
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">3</span>
-                  <div>
-                    <p className="font-semibold">Kies "Web"</p>
-                    <p className="text-xs text-blue-700">Selecteer platform <em>Web</em>. Vul bij <em>Site URL</em> in: <span className="font-mono bg-blue-100 px-1 rounded">https://[jouw-github-naam].github.io</span></p>
-                  </div>
-                </li>
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">4</span>
-                  <div>
-                    <p className="font-semibold">Kopieer de App ID</p>
-                    <p className="text-xs text-blue-700">Na het opslaan zie je een <em>App ID</em> (lange code met koppeltekens). Plak die hierboven.</p>
-                  </div>
-                </li>
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">5</span>
-                  <div>
-                    <p className="font-semibold">Dagelijkse melding instellen</p>
-                    <p className="text-xs text-blue-700">In het OneSignal dashboard: <em>Messages → New Push → Recurring</em>. Stel in op 08:00, elke dag. Tekst: bijv. "Goedemorgen — check je interventies voor vandaag."</p>
-                  </div>
-                </li>
-                <li className="flex gap-3">
-                  <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">6</span>
-                  <div>
-                    <p className="font-semibold">Voeg app toe aan iPhone homescreen</p>
-                    <p className="text-xs text-blue-700">Open de app in Safari → <em>Deel-knop</em> (vierkantje met pijl) → <em>Zet op beginscherm</em>. Push-notificaties werken alleen via het homescreen op iOS.</p>
-                  </div>
-                </li>
-              </ol>
-
-              <div className="bg-blue-100 rounded-lg px-3 py-2 text-xs text-blue-800">
-                <strong>Tip:</strong> Tik op de knop hieronder nadat je de App ID hebt ingevoerd — de app vraagt dan om toestemming voor notificaties.
-              </div>
-            </div>
-          </details>
-
-          {settings.onesignalAppId && (
-            <button
-              onClick={() => {
-                if (window.OneSignalDeferred) {
-                  window.OneSignalDeferred.push(async (OneSignal) => {
-                    await OneSignal.Notifications.requestPermission()
-                  })
-                }
-              }}
-              className="btn-secondary w-full text-sm"
-            >
-              Notificaties inschakelen
-            </button>
-          )}
-        </div>
-      </Sectie>
-
       {/* Claude API */}
       <Sectie titel="Claude API (screenshot-analyse)">
         <div className="space-y-3">
           <p className="text-xs text-slate-500">
-            Nodig voor het automatisch uitlezen van Garmin screenshots bij de NASA Lean Test. Haal je API-sleutel op via <span className="font-mono bg-slate-100 px-1 rounded">console.anthropic.com</span>.
+            Nodig voor het automatisch uitlezen van Garmin screenshots bij de NASA Lean Test.
+            Haal je sleutel op via{' '}
+            <span className="font-mono bg-slate-100 px-1 rounded">console.anthropic.com</span>{' '}
+            → API Keys → Create Key.
           </p>
           <div>
             <label className="label">Claude API-sleutel</label>

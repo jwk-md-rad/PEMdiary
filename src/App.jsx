@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import AuthScreen from './components/AuthScreen.jsx'
 import InterventiesTab from './components/InterventiesTab.jsx'
 import DagboekTab from './components/DagboekTab.jsx'
 import Settings from './components/Settings.jsx'
 import { DataProvider } from './contexts/DataContext.jsx'
-import { loadSettings } from './utils/crypto.js'
 
 function TabBar({ actief, onChange }) {
   const tabs = [
@@ -83,20 +82,6 @@ export default function App() {
   const [auth, setAuth] = useState(null) // { key, dagboek, tests }
   const [tab, setTab] = useState('dagboek')
 
-  // Initialize OneSignal when App ID is configured
-  useEffect(() => {
-    const settings = loadSettings()
-    if (!settings.onesignalAppId) return
-    window.OneSignalDeferred = window.OneSignalDeferred || []
-    window.OneSignalDeferred.push(async function (OneSignal) {
-      await OneSignal.init({
-        appId: settings.onesignalAppId,
-        allowLocalhostAsSecureOrigin: true,
-        notifyButton: { enable: false },
-        serviceWorkerPath: '/PEMdiary/OneSignalSDKWorker.js',
-      })
-    })
-  }, [])
 
   if (!auth) {
     return (

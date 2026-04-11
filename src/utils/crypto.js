@@ -99,7 +99,7 @@ export function resetAll() {
 
 // Settings are stored unencrypted (not health data)
 const KEY_SETTINGS = 'pemdiary_settings'
-const DEFAULT_SETTINGS = { claudeApiKey: '', onesignalAppId: 'fe5f5231-527c-4382-a215-e18e8e86e768', notificatieTijd: '08:00' }
+const DEFAULT_SETTINGS = { claudeApiKey: '' }
 
 export function loadSettings() {
   try {
