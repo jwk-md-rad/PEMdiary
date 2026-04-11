@@ -1,0 +1,14 @@
+{
+  "name": "PEM Dagboek",
+  "short_name": "PEMdiary",
+  "description": "Dagboek en interventies voor PEM/POTS",
+  "start_url": "/PEMdiary/",
+  "scope": "/PEMdiary/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/PEMdiary/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

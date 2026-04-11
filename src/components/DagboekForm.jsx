@@ -1,369 +1,157 @@
 import { useState } from 'react'
 import { useData } from '../contexts/DataContext.jsx'
-import { createLeegEntry } from '../utils/storage.js'
-import { SYMPTOOM_LABELS, vandaag } from '../utils/helpers.js'
+import { createLeegEntry, vandaag } from '../utils/storage.js'
+import { scoreKleurOrtho, scoreKleurPositief } from '../utils/helpers.js'
 
-function SymptomenBlok({ waarden, onChange }) {
+const SCORES = [1, 2, 3, 4, 5]
+
+function ScoreKnop({ waarde, geselecteerd, kleur, onClick }) {
   return (
-    <div className="space-y-4">
-      {Object.entries(SYMPTOOM_LABELS).map(([key, naam]) => (
-        <div key={key}>
-          <div className="flex justify-between items-center mb-1">
-            <label className="text-xs text-slate-600">{naam}</label>
-            <span className={`text-sm font-bold w-6 text-right ${
-              waarden[key] <= 2 ? 'text-green-600' :
-              waarden[key] <= 4 ? 'text-yellow-600' :
-              waarden[key] <= 6 ? 'text-orange-500' : 'text-red-600'
-            }`}>{waarden[key]}</span>
-          </div>
-          <input type="range" min="0" max="10" step="1"
-            value={waarden[key]}
-            onChange={e => onChange({ ...waarden, [key]: Number(e.target.value) })}
-            className="slider-symptoom" />
-          <div className="flex justify-between text-xs text-slate-400 mt-0.5">
-            <span>0 Geen</span><span>10 Ernstig</span>
-          </div>
-        </div>
-      ))}
-    </div>
+    <button
+      type="button"
+      onClick={() => onClick(waarde)}
+      style={geselecteerd ? { backgroundColor: kleur, borderColor: kleur, color: 'white' } : { borderColor: kleur }}
+      className={`w-12 h-12 rounded-full border-2 font-bold text-base transition-all flex-shrink-0 ${
+        geselecteerd ? 'shadow-md scale-110' : 'bg-white text-slate-600'
+      }`}
+    >
+      {waarde}
+    </button>
   )
 }
 
-function TellerInput({ label, eenheid, value, onChange, max = 15 }) {
+function ScoreVeld({ label, sublabel, waarde, onChange, kleuren }) {
   return (
     <div>
-      <div className="flex justify-between items-center mb-1">
-        <label className="text-xs text-slate-600">{label}</label>
-        <span className="text-sm font-bold text-slate-700">{value} {eenheid}</span>
+      <div className="flex justify-between items-baseline mb-2">
+        <label className="text-sm font-semibold text-slate-800">{label}</label>
+        <span className="text-xs text-slate-400">{sublabel}</span>
       </div>
-      <div className="flex items-center gap-3">
-        <button type="button"
-          onClick={() => onChange(Math.max(0, value - 1))}
-          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-lg flex items-center justify-center transition-colors">
-          −
-        </button>
-        <input type="range" min="0" max={max} step="1" value={value}
-          onChange={e => onChange(Number(e.target.value))}
-          className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-slate-200" />
-        <button type="button"
-          onClick={() => onChange(Math.min(max, value + 1))}
-          className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-lg flex items-center justify-center transition-colors">
-          +
-        </button>
+      <div className="flex gap-2 justify-between">
+        {SCORES.map(n => (
+          <ScoreKnop
+            key={n}
+            waarde={n}
+            geselecteerd={waarde === n}
+            kleur={kleuren[n]}
+            onClick={onChange}
+          />
+        ))}
       </div>
     </div>
   )
 }
 
-function ActiviteitRij({ activiteit, index, onChange, onVerwijder }) {
-  return (
-    <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-semibold text-slate-500">Activiteit {index + 1}</span>
-        <button type="button" onClick={onVerwijder} className="text-red-400 hover:text-red-600 text-xs">
-          Verwijder
-        </button>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="label">Tijd</label>
-          <input type="time" value={activiteit.tijd}
-            onChange={e => onChange({ ...activiteit, tijd: e.target.value })}
-            className="input-field" />
-        </div>
-        <div>
-          <label className="label">Type</label>
-          <select value={activiteit.type}
-            onChange={e => onChange({ ...activiteit, type: e.target.value })}
-            className="input-field">
-            <option value="fysiek">Fysiek</option>
-            <option value="mentaal">Mentaal</option>
-            <option value="sociaal">Sociaal</option>
-          </select>
-        </div>
-      </div>
-      <div className="mt-2">
-        <label className="label">Activiteit</label>
-        <input type="text" placeholder="Bijv. wandelen, e-mails lezen..."
-          value={activiteit.activiteit}
-          onChange={e => onChange({ ...activiteit, activiteit: e.target.value })}
-          className="input-field" />
-      </div>
-      <div className="grid grid-cols-3 gap-2 mt-2">
-        <div>
-          <label className="label">Duur (min)</label>
-          <input type="number" min="0" placeholder="0" value={activiteit.duur}
-            onChange={e => onChange({ ...activiteit, duur: e.target.value })}
-            className="input-field" />
-        </div>
-        <div>
-          <label className="label">Gem. HR</label>
-          <input type="number" min="0" placeholder="—" value={activiteit.gemHR}
-            onChange={e => onChange({ ...activiteit, gemHR: e.target.value })}
-            className="input-field" />
-        </div>
-        <div>
-          <label className="label">Max HR</label>
-          <input type="number" min="0" placeholder="—" value={activiteit.maxHR}
-            onChange={e => onChange({ ...activiteit, maxHR: e.target.value })}
-            className="input-field" />
-        </div>
-      </div>
-      <div className="mt-2">
-        <div className="flex justify-between items-center mb-1">
-          <label className="label mb-0">RPE (inspanningsperceptie)</label>
-          <span className={`text-sm font-bold ${
-            activiteit.rpe <= 3 ? 'text-green-600' :
-            activiteit.rpe <= 6 ? 'text-yellow-600' : 'text-red-600'
-          }`}>{activiteit.rpe}/10</span>
-        </div>
-        <input type="range" min="0" max="10" step="1" value={activiteit.rpe}
-          onChange={e => onChange({ ...activiteit, rpe: Number(e.target.value) })}
-          className="slider-rpe" />
-        <div className="flex justify-between text-xs text-slate-400 mt-0.5">
-          <span>0 Rust</span><span>5 Matig</span><span>10 Maximaal</span>
-        </div>
-      </div>
-      <div className="mt-2">
-        <label className="label">Opmerkingen</label>
-        <input type="text" placeholder="Bijv. orthostase, triggers..."
-          value={activiteit.opmerkingen}
-          onChange={e => onChange({ ...activiteit, opmerkingen: e.target.value })}
-          className="input-field" />
-      </div>
-    </div>
-  )
-}
-
-function nieuweActiviteit() {
-  return { id: `act_${Date.now()}`, tijd: '', type: 'fysiek', activiteit: '', duur: '', rpe: 3, gemHR: '', maxHR: '', opmerkingen: '' }
-}
+const ORTHO_HEX = { 1: '#16a34a', 2: '#84cc16', 3: '#eab308', 4: '#f97316', 5: '#ef4444' }
+const POS_HEX   = { 1: '#ef4444', 2: '#f97316', 3: '#eab308', 4: '#84cc16', 5: '#16a34a' }
 
 export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
   const { saveEntry } = useData()
   const [formData, setFormData] = useState(() =>
     entry ? JSON.parse(JSON.stringify(entry)) : createLeegEntry(vandaag())
   )
-  const [activeTab, setActiveTab] = useState('activiteiten')
   const [opgeslagen, setOpgeslagen] = useState(false)
 
-  const update = (path, value) => setFormData(prev => {
-    const next = { ...prev }
-    const keys = path.split('.')
-    let obj = next
-    for (let i = 0; i < keys.length - 1; i++) obj = obj[keys[i]] = { ...obj[keys[i]] }
-    obj[keys[keys.length - 1]] = value
-    return next
-  })
-
-  function voegActiviteitToe() {
-    setFormData(prev => ({ ...prev, activiteiten: [...prev.activiteiten, nieuweActiviteit()] }))
-  }
-  function updateActiviteit(i, updated) {
-    setFormData(prev => {
-      const activiteiten = [...prev.activiteiten]
-      activiteiten[i] = updated
-      return { ...prev, activiteiten }
-    })
-  }
-  function verwijderActiviteit(i) {
-    setFormData(prev => ({ ...prev, activiteiten: prev.activiteiten.filter((_, j) => j !== i) }))
-  }
+  const set = (key, value) => setFormData(prev => ({ ...prev, [key]: value }))
 
   function handleOpslaan(e) {
     e.preventDefault()
     saveEntry(formData)
     setOpgeslagen(true)
-    setTimeout(onOpgeslagen, 800)
+    setTimeout(onOpgeslagen, 600)
   }
 
-  const tabs = [
-    { id: 'activiteiten', label: 'Activiteiten & Slaap' },
-    { id: 'symptomen', label: 'Symptomen vanavond' },
-    { id: 'extra', label: 'Extra' },
-  ]
-
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-slate-900">{entry ? 'Dag bijwerken' : 'Nieuwe dag'}</h2>
-        <button onClick={onAnnuleren} className="text-slate-400 hover:text-slate-600">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      <form onSubmit={handleOpslaan} className="space-y-4">
-        <div className="card">
-          <label className="label">Datum</label>
-          <input type="date" value={formData.datum} required
-            onChange={e => setFormData(prev => ({ ...prev, datum: e.target.value }))}
-            className="input-field" />
-        </div>
-
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
-          {tabs.map(tab => (
-            <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2 px-1 rounded-lg text-xs font-medium transition-colors ${
-                activeTab === tab.id ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab 1: Activiteiten & Slaap */}
-        {activeTab === 'activiteiten' && (
-          <div className="space-y-4">
-            <div className="card">
-              <h3 className="section-title">
-                <svg className="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-                Nachtrust & ochtend
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Slaapduur (uur)</label>
-                  <input type="number" min="0" max="24" step="0.5" placeholder="7.5"
-                    value={formData.nachtrust.duur}
-                    onChange={e => update('nachtrust.duur', e.target.value)}
-                    className="input-field" />
-                </div>
-                <div>
-                  <label className="label">Kwaliteit</label>
-                  <select value={formData.nachtrust.kwaliteit}
-                    onChange={e => update('nachtrust.kwaliteit', e.target.value)}
-                    className="input-field">
-                    <option value="slecht">Slecht</option>
-                    <option value="matig">Matig</option>
-                    <option value="goed">Goed</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Nacht-HR (gem.)</label>
-                  <input type="number" min="0" placeholder="—"
-                    value={formData.nachtrust.nachtHR}
-                    onChange={e => update('nachtrust.nachtHR', e.target.value)}
-                    className="input-field" />
-                </div>
-                <div>
-                  <label className="label">HRV (Garmin)</label>
-                  <input type="number" min="0" placeholder="—"
-                    value={formData.nachtrust.hrv}
-                    onChange={e => update('nachtrust.hrv', e.target.value)}
-                    className="input-field" />
-                </div>
-                <div className="col-span-2">
-                  <label className="label">Rust-HR ochtend (bpm)</label>
-                  <input type="number" min="0" placeholder="—"
-                    value={formData.extra.rustHROchtend}
-                    onChange={e => update('extra.rustHROchtend', e.target.value)}
-                    className="input-field" />
-                </div>
-              </div>
-            </div>
-
-            <div className="card">
-              <h3 className="section-title">
-                <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Activiteiten
-              </h3>
-              <div className="space-y-3">
-                {formData.activiteiten.map((act, i) => (
-                  <ActiviteitRij key={act.id} activiteit={act} index={i}
-                    onChange={updated => updateActiviteit(i, updated)}
-                    onVerwijder={() => verwijderActiviteit(i)} />
-                ))}
-              </div>
-              <button type="button" onClick={voegActiviteitToe}
-                className="mt-3 w-full border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-400 hover:text-blue-600 rounded-lg py-3 text-sm font-medium transition-colors flex items-center justify-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Activiteit toevoegen
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 2: Symptomen */}
-        {activeTab === 'symptomen' && (
-          <div className="card">
-            <h3 className="section-title">
-              <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Hoe voel je je vanavond?
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              De app koppelt deze scores automatisch als +24u/+48u/+72u aan activiteiten van de vorige dagen.
-            </p>
-            <SymptomenBlok
-              waarden={formData.symptomen}
-              onChange={w => setFormData(prev => ({ ...prev, symptomen: w }))}
-            />
-          </div>
-        )}
-
-        {/* Tab 3: Extra */}
-        {activeTab === 'extra' && (
-          <div className="card space-y-5">
-            <h3 className="section-title">
-              <svg className="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-              Extra gegevens
-            </h3>
-
-            <TellerInput
-              label="Cafeïne"
-              eenheid="kopjes"
-              value={formData.extra.cafeine}
-              onChange={v => update('extra.cafeine', v)}
-              max={12}
-            />
-
-            <TellerInput
-              label="Alcohol"
-              eenheid="eenheden"
-              value={formData.extra.alcohol}
-              onChange={v => update('extra.alcohol', v)}
-              max={10}
-            />
-
-            <div>
-              <label className="label">Medicatie / supplementen</label>
-              <input type="text" placeholder="Bijv. LDN 4.5mg, magnesium..."
-                value={formData.extra.medicatie}
-                onChange={e => update('extra.medicatie', e.target.value)}
-                className="input-field" />
-            </div>
-
-            <div>
-              <label className="label">Notities</label>
-              <textarea rows={4} placeholder="Vrije notities, triggers, bijzonderheden..."
-                value={formData.extra.notities}
-                onChange={e => update('extra.notities', e.target.value)}
-                className="input-field resize-none" />
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-3 pb-4">
-          <button type="button" onClick={onAnnuleren} className="btn-secondary flex-1">Annuleren</button>
-          <button type="submit"
-            className={`btn-primary flex-1 ${opgeslagen ? 'bg-green-600 hover:bg-green-600' : ''}`}>
-            {opgeslagen ? '✓ Opgeslagen!' : 'Opslaan'}
+    <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-end justify-center" onClick={onAnnuleren}>
+      <div
+        className="bg-white w-full max-w-lg rounded-t-2xl p-5 pb-safe space-y-5 max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">
+            {entry ? 'Entry bijwerken' : 'Dag loggen'}
+          </h2>
+          <button onClick={onAnnuleren} className="p-2 text-slate-400 hover:text-slate-600">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
-      </form>
+
+        <form onSubmit={handleOpslaan} className="space-y-5">
+          {/* Datum */}
+          <div>
+            <label className="label">Datum</label>
+            <input type="date" value={formData.datum} required
+              onChange={e => set('datum', e.target.value)}
+              className="input-field" />
+          </div>
+
+          {/* Scores */}
+          <div className="space-y-5 bg-slate-50 rounded-xl p-4">
+            <ScoreVeld
+              label="Orthostatische klachten"
+              sublabel="1 = geen  ·  5 = ernstig"
+              waarde={formData.orthostatisch}
+              onChange={v => set('orthostatisch', v)}
+              kleuren={ORTHO_HEX}
+            />
+            <div className="border-t border-slate-200" />
+            <ScoreVeld
+              label="Energieniveau"
+              sublabel="1 = uitgeput  ·  5 = goed"
+              waarde={formData.energie}
+              onChange={v => set('energie', v)}
+              kleuren={POS_HEX}
+            />
+            <div className="border-t border-slate-200" />
+            <ScoreVeld
+              label="Slaapkwaliteit"
+              sublabel="1 = slecht  ·  5 = goed"
+              waarde={formData.slaap}
+              onChange={v => set('slaap', v)}
+              kleuren={POS_HEX}
+            />
+          </div>
+
+          {/* HR & HRV */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label">Ochtend-HR (bpm)</label>
+              <input type="number" min="30" max="200" placeholder="bijv. 62"
+                value={formData.ochtendHR}
+                onChange={e => set('ochtendHR', e.target.value)}
+                className="input-field" />
+            </div>
+            <div>
+              <label className="label">HRV / RMSSD</label>
+              <input type="number" min="0" max="200" placeholder="bijv. 42"
+                value={formData.hrv}
+                onChange={e => set('hrv', e.target.value)}
+                className="input-field" />
+            </div>
+          </div>
+
+          {/* Notities */}
+          <div>
+            <label className="label">Notities</label>
+            <textarea
+              rows={3}
+              placeholder="Triggers, bijzonderheden, medicatie..."
+              value={formData.notities}
+              onChange={e => set('notities', e.target.value)}
+              className="input-field resize-none"
+            />
+          </div>
+
+          {/* Opslaan */}
+          <button type="submit"
+            className={`btn-primary w-full py-3 text-base ${opgeslagen ? 'bg-green-600 hover:bg-green-600' : ''}`}>
+            {opgeslagen ? '✓ Opgeslagen!' : 'Opslaan'}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

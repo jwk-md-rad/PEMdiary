@@ -1,7 +1,8 @@
 const KEY_SALT = 'pemdiary_salt'
 const KEY_VERIFY = 'pemdiary_verify'
-const KEY_DATA = 'pemdiary_data'
-const VERIFY_MARKER = 'pemdiary_verified_v1'
+const KEY_DAGBOEK = 'pemdiary_dagboek'
+const KEY_TESTS = 'pemdiary_tests'
+const VERIFY_MARKER = 'pemdiary_verified_v2'
 
 function toBase64(buf) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))
@@ -64,8 +65,8 @@ export async function verifyPassword(password) {
   }
 }
 
-export async function loadEntries(key) {
-  const raw = localStorage.getItem(KEY_DATA)
+export async function loadDagboek(key) {
+  const raw = localStorage.getItem(KEY_DAGBOEK)
   if (!raw) return []
   try {
     return await decryptBlob(key, raw)
@@ -74,11 +75,40 @@ export async function loadEntries(key) {
   }
 }
 
-export async function persistEntries(key, entries) {
-  const blob = await encryptBlob(key, entries)
-  localStorage.setItem(KEY_DATA, blob)
+export async function persistDagboek(key, entries) {
+  localStorage.setItem(KEY_DAGBOEK, await encryptBlob(key, entries))
+}
+
+export async function loadTests(key) {
+  const raw = localStorage.getItem(KEY_TESTS)
+  if (!raw) return []
+  try {
+    return await decryptBlob(key, raw)
+  } catch {
+    return []
+  }
+}
+
+export async function persistTests(key, tests) {
+  localStorage.setItem(KEY_TESTS, await encryptBlob(key, tests))
 }
 
 export function resetAll() {
-  ;[KEY_SALT, KEY_VERIFY, KEY_DATA].forEach(k => localStorage.removeItem(k))
+  ;[KEY_SALT, KEY_VERIFY, KEY_DAGBOEK, KEY_TESTS].forEach(k => localStorage.removeItem(k))
+}
+
+// Settings are stored unencrypted (not health data)
+const KEY_SETTINGS = 'pemdiary_settings'
+const DEFAULT_SETTINGS = { claudeApiKey: '', onesignalAppId: '', notificatieTijd: '08:00' }
+
+export function loadSettings() {
+  try {
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(KEY_SETTINGS) || '{}') }
+  } catch {
+    return DEFAULT_SETTINGS
+  }
+}
+
+export function saveSettings(settings) {
+  localStorage.setItem(KEY_SETTINGS, JSON.stringify(settings))
 }
