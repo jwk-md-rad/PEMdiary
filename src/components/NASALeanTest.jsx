@@ -86,6 +86,8 @@ async function analyserenMetClaude(base64, apiKey) {
   return JSON.parse(match[0])
 }
 
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+
 export default function NASALeanTest({ test, onOpgeslagen, onAnnuleren }) {
   const { saveTest } = useData()
   const [formData, setFormData] = useState(() =>
@@ -167,40 +169,55 @@ export default function NASALeanTest({ test, onOpgeslagen, onAnnuleren }) {
               className="input-field" />
           </div>
 
-          {/* Screenshot upload */}
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-blue-800">Garmin screenshot analyseren</p>
-            <p className="text-xs text-blue-600">
-              Upload een screenshot van de HR-grafiek uit Garmin Connect. Claude AI leest automatisch de waarden uit.
-            </p>
-            <label className={`flex items-center justify-center gap-2 w-full border-2 border-dashed rounded-lg py-3 text-sm font-medium cursor-pointer transition-colors ${
-              uploaden
-                ? 'border-blue-300 text-blue-400 bg-blue-50'
-                : 'border-blue-400 text-blue-600 hover:bg-blue-100'
-            }`}>
-              {uploaden ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                  </svg>
-                  Analyseren...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  Screenshot uploaden
-                </>
+          {/* Screenshot analyse */}
+          {isIOS ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+              <p className="text-sm font-semibold text-amber-800">HR-waarden ophalen via Claude.ai</p>
+              <p className="text-xs text-amber-700 leading-relaxed">
+                iOS blokkeert directe API-calls. Werkwijze:
+              </p>
+              <ol className="text-xs text-amber-700 space-y-1 list-none">
+                <li className="flex gap-2"><span className="font-bold">1.</span> Open de Garmin HR-grafiek als screenshot</li>
+                <li className="flex gap-2"><span className="font-bold">2.</span> Open claude.ai in Safari</li>
+                <li className="flex gap-2"><span className="font-bold">3.</span> Stuur het screenshot met de vraag: <em>"Wat zijn de HR-waarden in deze NASA Lean Test grafiek? Geef HR liggend, max HR staand en HR na terugliggen."</em></li>
+                <li className="flex gap-2"><span className="font-bold">4.</span> Vul de waarden hieronder in</li>
+              </ol>
+            </div>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-blue-800">Garmin screenshot analyseren</p>
+              <p className="text-xs text-blue-600">
+                Upload een screenshot van de HR-grafiek. Claude AI leest automatisch de waarden uit.
+              </p>
+              <label className={`flex items-center justify-center gap-2 w-full border-2 border-dashed rounded-lg py-3 text-sm font-medium cursor-pointer transition-colors ${
+                uploaden
+                  ? 'border-blue-300 text-blue-400 bg-blue-50'
+                  : 'border-blue-400 text-blue-600 hover:bg-blue-100'
+              }`}>
+                {uploaden ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    Analyseren...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Screenshot uploaden
+                  </>
+                )}
+                <input type="file" accept="image/*" className="hidden" onChange={handleScreenshot} disabled={uploaden} />
+              </label>
+              {uploadFout && (
+                <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{uploadFout}</p>
               )}
-              <input type="file" accept="image/*" className="hidden" onChange={handleScreenshot} disabled={uploaden} />
-            </label>
-            {uploadFout && (
-              <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{uploadFout}</p>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* HR waarden */}
           <div className="space-y-3">
