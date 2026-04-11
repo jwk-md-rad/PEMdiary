@@ -40,6 +40,37 @@ jobs:
           now   = datetime.datetime.now(tz)
           datum = f"{DAGEN[now.weekday()]} {now.day} {MAANDEN[now.month - 1]} {now.year}"
 
+          # Roterende dagelijkse tip (zelfde lijst als in de app)
+          TIPS = [
+              ("Zout & vocht", "Drink 2,5–3 L vocht. Begin met bouillon of isotone sportdrank. Voeg extra zout toe aan maaltijden."),
+              ("Houdingsaanpassing", "Douchen zittend of koud/lauw. Koken op barkruk. Na opstaan 1–2 min aan de bedrand zitten."),
+              ("Compressiekousen", "Aantrekken vóór je opstaat op drukke dagen."),
+              ("Vaste wektijd", "Houd vandaag je vaste wektijd aan — ook in het weekend. Sterkste circadiane anker."),
+              ("Magnesiumbisglycinaat", "300–400 mg elementair magnesium voor bed. Controleer het etiket op elementair gehalte."),
+              ("Horizontale pauze", "Neem 10 minuten liggend rust na de lunch en/of halverwege de middag."),
+              ("Garmin HR-alarm", "HR-alarm ingesteld op 100? Controleer bij douchen, koken en traplopen."),
+              ("Countermanoeuver", "Bij plotselinge tachycardie: beenkruisen, kuitspieren aanspannen, of hurken."),
+              ("Cafeïne stop", "Geen cafeïne meer na 13:00 voor betere slaap en lagere nacht-HR."),
+              ("Cognitief budget", "Zware taken clusteren in de ochtend. Houd de middag lichter."),
+              ("Resonantie-ademhaling", "5 minuten voor bed: 5–6 ademhalingen per minuut."),
+              ("Slaapomgeving", "Slaapkamer 18–19 °C. Geen schermen 60 min voor bed."),
+              ("Koken op barkruk", "Koken staand verhoogt je HR structureel. Gebruik een barkruk."),
+              ("Opstaan na slaap", "Na het wakker worden: 1–2 minuten aan de bedrand zitten voor je staat."),
+              ("Slaaptijd", "Elke dag dezelfde wektijd programmeert je circadiaan ritme."),
+          ]
+          dag_van_jaar = now.timetuple().tm_yday
+          tip_titel, tip_tekst = TIPS[dag_van_jaar % len(TIPS)]
+
+          # NASA Lean herinnering op maandag
+          lean_blok = ""
+          if now.weekday() == 0:  # maandag
+              lean_blok = """
+                      <table width="100%" cellpadding="0" cellspacing="0"
+                        style="background:#fefce8;border:1px solid #fde047;border-radius:10px;padding:14px 18px;margin-bottom:20px;">
+                        <tr><td style="color:#92400e;font-size:13px;font-weight:700;padding-bottom:4px;">&#x23F1; Wekelijkse NASA Lean Test</td></tr>
+                        <tr><td style="color:#a16207;font-size:13px;">10 min supine &rarr; 10 min staan &rarr; nuchter &rarr; HR op 2/4/6/8/10 min noteren.</td></tr>
+                      </table>"""
+
           html = f"""<!DOCTYPE html>
           <html lang="nl">
           <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
@@ -49,25 +80,36 @@ jobs:
                   style="background:#ffffff;border-radius:16px;border:1px solid #e2e8f0;overflow:hidden;max-width:480px;">
                   <tr>
                     <td style="background:linear-gradient(135deg,#1d4ed8,#2563eb);padding:28px 32px;text-align:center;">
-                      <p style="margin:0 0 8px;font-size:32px;">&#x1F4CB;</p>
+                      <p style="margin:0 0 8px;font-size:28px;">&#x1F4CB;</p>
                       <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;">PEM Dagboek</h1>
-                      <p style="margin:6px 0 0;color:#bfdbfe;font-size:14px;">Dagelijkse herinnering</p>
+                      <p style="margin:6px 0 0;color:#bfdbfe;font-size:14px;">{datum}</p>
                     </td>
                   </tr>
                   <tr>
-                    <td style="padding:32px;">
-                      <p style="margin:0 0 4px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">VANDAAG</p>
-                      <p style="margin:0 0 20px;color:#0f172a;font-size:18px;font-weight:700;">{datum}</p>
-                      <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">
-                        Log je activiteiten en hoe je je vanavond voelt &#8212; het duurt maar 2 minuten.
-                      </p>
+                    <td style="padding:28px 32px 20px;">
+
+                      <!-- Dagelijkse tip -->
+                      <p style="margin:0 0 6px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">DENK VANDAAG AAN</p>
                       <table width="100%" cellpadding="0" cellspacing="0"
-                        style="background:#f1f5f9;border-radius:10px;padding:16px 20px;margin-bottom:28px;">
-                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">&#x1F319;&nbsp; Slaap, HRV &amp; ochtend-HR</td></tr>
-                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">&#x26A1;&nbsp; Activiteiten (type, duur, RPE, HR)</td></tr>
-                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">&#x1FA7A;&nbsp; Symptomen vanavond (0&#8211;10)</td></tr>
-                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">&#x2615;&nbsp; Cafe&#239;ne, alcohol, medicatie</td></tr>
+                        style="background:#eff6ff;border-left:3px solid #2563eb;border-radius:0 8px 8px 0;padding:12px 16px;margin-bottom:24px;">
+                        <tr><td style="color:#1e40af;font-size:14px;font-weight:700;padding-bottom:3px;">{tip_titel}</td></tr>
+                        <tr><td style="color:#3b82f6;font-size:13px;line-height:1.5;">{tip_tekst}</td></tr>
                       </table>
+
+                      <!-- NASA Lean (alleen maandag) -->
+                      {lean_blok}
+
+                      <!-- Dagboek checklist -->
+                      <p style="margin:0 0 10px;color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;">VANDAAG LOGGEN</p>
+                      <table width="100%" cellpadding="0" cellspacing="0"
+                        style="background:#f8fafc;border-radius:10px;padding:14px 18px;margin-bottom:24px;">
+                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">&#x1F534;&nbsp; Orthostatische klachten (1–5)</td></tr>
+                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">&#x26A1;&nbsp; Energieniveau (1–5)</td></tr>
+                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">&#x1F319;&nbsp; Slaapkwaliteit (1–5)</td></tr>
+                        <tr><td style="padding:3px 0;color:#374151;font-size:14px;">&#x2764;&#xFE0F;&nbsp; Ochtend-HR &amp; HRV (Garmin)</td></tr>
+                      </table>
+
+                      <!-- Knop -->
                       <table width="100%" cellpadding="0" cellspacing="0">
                         <tr><td align="center">
                           <a href="https://jwk-md-rad.github.io/PEMdiary/"
@@ -78,13 +120,14 @@ jobs:
                           </a>
                         </td></tr>
                       </table>
+
                     </td>
                   </tr>
                   <tr>
-                    <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
+                    <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:14px 32px;text-align:center;">
                       <p style="margin:0;color:#94a3b8;font-size:12px;line-height:1.6;">
-                        Automatische herinnering &#183; PEM Dagboek<br>
-                        Je data is AES-256 versleuteld en alleen leesbaar met jouw wachtwoord.
+                        Automatische herinnering &middot; PEM Dagboek<br>
+                        Data is AES-256 versleuteld en alleen leesbaar met jouw wachtwoord.
                       </p>
                     </td>
                   </tr>
@@ -95,12 +138,10 @@ jobs:
 
           with open("/tmp/email.html", "w") as f:
               f.write(html)
-
-          # Schrijf datum naar env voor gebruik in subject
           with open("/tmp/datum.txt", "w") as f:
               f.write(datum)
 
-          print(f"✅ E-mail HTML gegenereerd voor {datum}")
+          print(f"✅ E-mail HTML gegenereerd voor {datum} — tip: {tip_titel}")
           PYEOF
 
       - name: Lees datum voor subject
