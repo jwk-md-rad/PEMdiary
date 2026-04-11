@@ -39,7 +39,7 @@ function compressImage(file) {
 }
 
 async function analyserenMetClaude(base64, apiKey) {
-  const payload = JSON.stringify({
+  const body = JSON.stringify({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 200,
     messages: [{
@@ -62,12 +62,11 @@ async function analyserenMetClaude(base64, apiKey) {
     resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': apiKey,
+        'x-api-key': apiKey.trim(),
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
-        'anthropic-dangerous-allow-browser': 'true',
       },
-      body: new Blob([payload], { type: 'application/json' }),
+      body,
     })
   } catch (netErr) {
     throw new Error(`Verbinding mislukt. Controleer internet en probeer opnieuw. (${netErr.message})`)
