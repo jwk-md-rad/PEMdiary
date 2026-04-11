@@ -3,14 +3,31 @@ import { useData } from '../contexts/DataContext.jsx'
 import { createLeegTest, vandaag } from '../utils/storage.js'
 import { loadSettings } from '../utils/crypto.js'
 
-function fileToBase64(file) {
+// Resize + compress image to max 1024px wide, JPEG quality 0.8
+// Prevents "Load failed" on iOS for large screenshots
+function compressImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
-    reader.onload = () => {
-      const b64 = reader.result.split(',')[1]
-      resolve(b64)
-    }
     reader.onerror = reject
+    reader.onload = e => {
+      const img = new Image()
+      img.onerror = reject
+      img.onload = () => {
+        const MAX = 1024
+        let { width, height } = img
+        if (width > MAX) {
+          height = Math.round(height * MAX / width)
+          width = MAX
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+        const b64 = canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
+        resolve(b64)
+      }
+      img.src = e.target.result
+    }
     reader.readAsDataURL(file)
   })
 }
@@ -88,9 +105,8 @@ export default function NASALeanTest({ test, onOpgeslagen, onAnnuleren }) {
     setUploaden(true)
     setUploadFout('')
     try {
-      const base64 = await fileToBase64(file)
-      const mediaType = file.type || 'image/jpeg'
-      const waarden = await analyserenMetClaude(base64, mediaType, settings.claudeApiKey)
+      const base64 = await compressImage(file)
+      const waarden = await analyserenMetClaude(base64, 'image/jpeg', settings.claudeApiKey)
       setFormData(prev => ({
         ...prev,
         hrBaseline: waarden.hrBaseline ?? prev.hrBaseline,
