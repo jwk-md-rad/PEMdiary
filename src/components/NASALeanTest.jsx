@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useData } from '../contexts/DataContext.jsx'
-import { createLeegTest, vandaag } from '../utils/storage.js'
+import { createLeegTest, vandaag, STAAND_MINUTEN, hrMaxStaand } from '../utils/storage.js'
 import { loadSettings } from '../utils/crypto.js'
 
 // Resize + compress to max 800px, JPEG quality 0.7 — keeps payload small for iOS PWA
@@ -129,16 +129,18 @@ export default function NASALeanTest({ test, onOpgeslagen, onAnnuleren }) {
 
   function handleOpslaan(e) {
     e.preventDefault()
-    const verschil = (formData.hrMaxStaand && formData.hrBaseline)
-      ? Math.round(formData.hrMaxStaand - formData.hrBaseline)
+    const maxStaand = hrMaxStaand(formData)
+    const verschil = (maxStaand && formData.hrBaseline)
+      ? Math.round(maxStaand - Number(formData.hrBaseline))
       : null
-    saveTest({ ...formData, verschil })
+    saveTest({ ...formData, hrMaxStaand: maxStaand, verschil })
     setOpgeslagen(true)
     setTimeout(onOpgeslagen, 600)
   }
 
-  const verschil = formData.hrMaxStaand && formData.hrBaseline
-    ? Math.round(Number(formData.hrMaxStaand) - Number(formData.hrBaseline))
+  const maxStaand = hrMaxStaand(formData)
+  const verschil = maxStaand && formData.hrBaseline
+    ? Math.round(maxStaand - Number(formData.hrBaseline))
     : null
 
   return (
@@ -220,43 +222,52 @@ export default function NASALeanTest({ test, onOpgeslagen, onAnnuleren }) {
           )}
 
           {/* HR waarden */}
-          <div className="space-y-3">
-            <p className="text-sm font-semibold text-slate-700">HR-waarden (automatisch ingevuld of handmatig)</p>
-            <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-4">
+            {/* Baseline */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label text-xs">HR liggend (bpm)</label>
+                <label className="label text-xs">HR liggend — baseline</label>
                 <input type="number" min="30" max="200" placeholder="—"
                   value={formData.hrBaseline}
                   onChange={e => set('hrBaseline', e.target.value === '' ? '' : Number(e.target.value))}
                   className="input-field text-center font-semibold" />
-                <p className="text-xs text-slate-400 text-center mt-0.5">baseline</p>
               </div>
               <div>
-                <label className="label text-xs">HR max staand (bpm)</label>
-                <input type="number" min="30" max="250" placeholder="—"
-                  value={formData.hrMaxStaand}
-                  onChange={e => set('hrMaxStaand', e.target.value === '' ? '' : Number(e.target.value))}
-                  className="input-field text-center font-semibold" />
-                <p className="text-xs text-slate-400 text-center mt-0.5">maximum</p>
-              </div>
-              <div>
-                <label className="label text-xs">HR na terugliggen</label>
+                <label className="label text-xs">HR na terugliggen — herstel</label>
                 <input type="number" min="30" max="200" placeholder="—"
                   value={formData.hrNaLiggen}
                   onChange={e => set('hrNaLiggen', e.target.value === '' ? '' : Number(e.target.value))}
                   className="input-field text-center font-semibold" />
-                <p className="text-xs text-slate-400 text-center mt-0.5">herstel</p>
               </div>
+            </div>
+
+            {/* Staand per 2 minuten */}
+            <div>
+              <p className="text-xs font-semibold text-slate-600 mb-2">HR staand — per 2 minuten</p>
+              <div className="grid grid-cols-5 gap-2">
+                {STAAND_MINUTEN.map(min => (
+                  <div key={min}>
+                    <label className="block text-xs text-slate-500 text-center mb-1">{min} min</label>
+                    <input
+                      type="number" min="30" max="250" placeholder="—"
+                      value={formData[`hr${min}`]}
+                      onChange={e => set(`hr${min}`, e.target.value === '' ? '' : Number(e.target.value))}
+                      className="input-field text-center font-semibold px-1 py-2 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+              {maxStaand && (
+                <p className="text-xs text-slate-400 mt-1 text-right">max = {maxStaand} bpm</p>
+              )}
             </div>
 
             {/* Verschil berekening */}
             {verschil !== null && (
               <div className={`rounded-xl p-3 text-center ${
-                verschil >= 30
-                  ? 'bg-red-50 border border-red-200'
-                  : verschil >= 20
-                  ? 'bg-orange-50 border border-orange-200'
-                  : 'bg-green-50 border border-green-200'
+                verschil >= 30 ? 'bg-red-50 border border-red-200'
+                : verschil >= 20 ? 'bg-orange-50 border border-orange-200'
+                : 'bg-green-50 border border-green-200'
               }`}>
                 <p className={`text-2xl font-bold ${
                   verschil >= 30 ? 'text-red-700' : verschil >= 20 ? 'text-orange-700' : 'text-green-700'
@@ -266,11 +277,9 @@ export default function NASALeanTest({ test, onOpgeslagen, onAnnuleren }) {
                 <p className={`text-xs ${
                   verschil >= 30 ? 'text-red-500' : verschil >= 20 ? 'text-orange-500' : 'text-green-500'
                 }`}>
-                  {verschil >= 30
-                    ? 'POTS-drempel bereikt (≥30 bpm stijging)'
-                    : verschil >= 20
-                    ? 'Grensgebied (20–29 bpm stijging)'
-                    : 'Onder POTS-drempel (<20 bpm)'}
+                  {verschil >= 30 ? 'POTS-drempel bereikt (≥30 bpm stijging)'
+                  : verschil >= 20 ? 'Grensgebied (20–29 bpm stijging)'
+                  : 'Onder POTS-drempel (<20 bpm)'}
                 </p>
               </div>
             )}

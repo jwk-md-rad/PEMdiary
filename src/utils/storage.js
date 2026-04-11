@@ -15,15 +15,22 @@ export function createLeegEntry(datum) {
   }
 }
 
+export const STAAND_MINUTEN = [2, 4, 6, 8, 10]
+
 export function createLeegTest(datum) {
   return {
     id: null,
     datum: datum || vandaag(),
     hrBaseline: '',
-    hrMaxStaand: '',
+    hr2: '', hr4: '', hr6: '', hr8: '', hr10: '',
     hrNaLiggen: '',
     notities: '',
   }
+}
+
+export function hrMaxStaand(test) {
+  const waarden = STAAND_MINUTEN.map(m => Number(test[`hr${m}`])).filter(v => v > 0)
+  return waarden.length ? Math.max(...waarden) : null
 }
 
 export function upsertItem(items, item) {
