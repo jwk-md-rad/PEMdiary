@@ -3,8 +3,7 @@ import { useData } from '../contexts/DataContext.jsx'
 import { createLeegTest, vandaag } from '../utils/storage.js'
 import { loadSettings } from '../utils/crypto.js'
 
-// Resize + compress image to max 1024px wide, JPEG quality 0.8
-// Prevents "Load failed" on iOS for large screenshots
+// Resize + compress to max 800px, JPEG quality 0.7 — keeps payload small for iOS PWA
 function compressImage(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -13,17 +12,24 @@ function compressImage(file) {
       const img = new Image()
       img.onerror = reject
       img.onload = () => {
-        const MAX = 1024
+        const MAX = 800
         let { width, height } = img
-        if (width > MAX) {
-          height = Math.round(height * MAX / width)
-          width = MAX
+        if (width > MAX || height > MAX) {
+          if (width >= height) {
+            height = Math.round(height * MAX / width)
+            width = MAX
+          } else {
+            width = Math.round(width * MAX / height)
+            height = MAX
+          }
         }
         const canvas = document.createElement('canvas')
         canvas.width = width
         canvas.height = height
         canvas.getContext('2d').drawImage(img, 0, 0, width, height)
-        const b64 = canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.70)
+        const b64 = dataUrl.split(',')[1]
+        if (!b64) { reject(new Error('Canvas conversie mislukt')); return }
         resolve(b64)
       }
       img.src = e.target.result
@@ -32,45 +38,45 @@ function compressImage(file) {
   })
 }
 
-async function analyserenMetClaude(base64, mediaType, apiKey) {
-  const resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'anthropic-dangerous-allow-browser': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-opus-4-6',
-      max_tokens: 200,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64 },
-          },
-          {
-            type: 'text',
-            text: `Dit is een Garmin hartslag grafiek van een NASA Lean Test. Het protocol: ~1 minuut liggen (baseline), ~10 minuten staan, ~1 minuut terugliggen.
-
-Geef ALLEEN een JSON object terug zonder uitleg:
-{
-  "hrBaseline": <gemiddelde HR tijdens de eerste minuut liggen, als geheel getal>,
-  "hrMaxStaand": <maximale HR tijdens de staand-fase, als geheel getal>,
-  "hrNaLiggen": <gemiddelde HR tijdens de terugliggende fase, als geheel getal>
-}
-
-Als een waarde niet duidelijk leesbaar is, gebruik dan null.`,
-          },
-        ],
-      }],
-    }),
+async function analyserenMetClaude(base64, apiKey) {
+  const payload = JSON.stringify({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 200,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
+        },
+        {
+          type: 'text',
+          text: 'Dit is een Garmin hartslag grafiek van een NASA Lean Test (1 min liggen, 10 min staan, 1 min liggen). Geef ALLEEN dit JSON object terug: {"hrBaseline":<gem HR liggend>,"hrMaxStaand":<max HR staand>,"hrNaLiggen":<gem HR terugliggend>}. Gebruik null als niet leesbaar.',
+        },
+      ],
+    }],
   })
+
+  let resp
+  try {
+    resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-allow-browser': 'true',
+      },
+      body: new Blob([payload], { type: 'application/json' }),
+    })
+  } catch (netErr) {
+    throw new Error(`Verbinding mislukt. Controleer internet en probeer opnieuw. (${netErr.message})`)
+  }
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}))
+    if (resp.status === 401) throw new Error('API-sleutel ongeldig — controleer bij Instellingen.')
+    if (resp.status === 429) throw new Error('API limiet bereikt, probeer over een minuut opnieuw.')
     throw new Error(err.error?.message || `HTTP ${resp.status}`)
   }
 
@@ -106,7 +112,7 @@ export default function NASALeanTest({ test, onOpgeslagen, onAnnuleren }) {
     setUploadFout('')
     try {
       const base64 = await compressImage(file)
-      const waarden = await analyserenMetClaude(base64, 'image/jpeg', settings.claudeApiKey)
+      const waarden = await analyserenMetClaude(base64, settings.claudeApiKey)
       setFormData(prev => ({
         ...prev,
         hrBaseline: waarden.hrBaseline ?? prev.hrBaseline,
