@@ -181,7 +181,7 @@ export default function NASALeanTest({ test, onOpgeslagen, onAnnuleren }) {
               <ol className="text-xs text-amber-700 space-y-1 list-none">
                 <li className="flex gap-2"><span className="font-bold">1.</span> Open de Garmin HR-grafiek als screenshot</li>
                 <li className="flex gap-2"><span className="font-bold">2.</span> Open claude.ai in Safari</li>
-                <li className="flex gap-2"><span className="font-bold">3.</span> Stuur het screenshot met de vraag: <em>"Wat zijn de HR-waarden in deze NASA Lean Test grafiek? Geef HR liggend, max HR staand en HR na terugliggen."</em></li>
+                <li className="flex gap-2"><span className="font-bold">3.</span> Stuur het screenshot met de vraag: <em>"Geef de HR-waarden uit deze NASA Lean Test grafiek: HR liggend (baseline), HR op 2/4/6/8/10 minuten staand, en HR na terugliggen."</em></li>
                 <li className="flex gap-2"><span className="font-bold">4.</span> Vul de waarden hieronder in</li>
               </ol>
             </div>
