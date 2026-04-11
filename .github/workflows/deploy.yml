@@ -2,7 +2,7 @@ name: Deploy naar GitHub Pages
 
 on:
   push:
-    branches: [claude/symptom-tracking-app-No6Qz]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
