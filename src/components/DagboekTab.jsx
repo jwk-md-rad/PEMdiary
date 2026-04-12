@@ -5,6 +5,7 @@ import { dagsSindsLaatsteTest } from '../utils/storage.js'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import DagboekForm from './DagboekForm.jsx'
 import NASALeanTest from './NASALeanTest.jsx'
+import ExportPDF from './ExportPDF.jsx'
 
 function ScoreDot({ score, type }) {
   const kleur = type === 'orthostatisch' ? scoreKleurOrtho(score) : scoreKleurPositief(score)
@@ -129,6 +130,7 @@ export default function DagboekTab() {
   const { dagboek, tests } = useData()
   const [toonForm, setToonForm] = useState(false)
   const [toonTest, setToonTest] = useState(false)
+  const [toonExport, setToonExport] = useState(false)
   const [bewerkEntry, setBewerkEntry] = useState(null)
 
   const today = vandaag()
@@ -148,6 +150,20 @@ export default function DagboekTab() {
 
   return (
     <div className="px-4 pt-4 pb-28 space-y-4">
+      {/* Export button row */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setToonExport(true)}
+          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          </svg>
+          PDF exporteren
+        </button>
+      </div>
+
       {/* Dagelijkse tip banner */}
       <div className="bg-blue-600 rounded-xl p-4 text-white">
         <p className="text-xs text-blue-200 font-medium mb-0.5">Denk vandaag aan</p>
@@ -252,6 +268,9 @@ export default function DagboekTab() {
           onOpgeslagen={() => setToonTest(false)}
           onAnnuleren={() => setToonTest(false)}
         />
+      )}
+      {toonExport && (
+        <ExportPDF onSluiten={() => setToonExport(false)} />
       )}
     </div>
   )

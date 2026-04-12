@@ -36,6 +36,31 @@
   }
 }
 
+@media print {
+  /* Allow content to scroll/paginate properly */
+  html, body, #root {
+    overflow: visible !important;
+    height: auto !important;
+  }
+
+  /* Hide everything, then show only the export modal */
+  body > * { visibility: hidden; }
+
+  .export-modal-root,
+  .export-modal-root * {
+    visibility: visible;
+  }
+
+  .export-modal-root {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+}
+
 @layer components {
   .card {
     @apply bg-white rounded-xl shadow-sm border border-slate-200 p-5;
