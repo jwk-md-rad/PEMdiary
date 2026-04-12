@@ -33,8 +33,19 @@ export function DataProvider({ cryptoKey, initialDagboek, initialTests, children
     persistTests(cryptoKey, updated)
   }, [cryptoKey])
 
+  const importData = useCallback((nieuwDagboek, nieuwTests) => {
+    const sortD = [...nieuwDagboek].sort((a, b) => b.datum.localeCompare(a.datum))
+    const sortT = [...nieuwTests].sort((a, b) => b.datum.localeCompare(a.datum))
+    dagboekRef.current = sortD
+    testsRef.current = sortT
+    setDagboek(sortD)
+    setTests(sortT)
+    persistDagboek(cryptoKey, sortD)
+    persistTests(cryptoKey, sortT)
+  }, [cryptoKey])
+
   return (
-    <DataContext.Provider value={{ dagboek, tests, saveEntry, deleteEntry, saveTest }}>
+    <DataContext.Provider value={{ dagboek, tests, saveEntry, deleteEntry, saveTest, importData }}>
       {children}
     </DataContext.Provider>
   )

@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { loadSettings, saveSettings, resetAll } from '../utils/crypto.js'
+import { useData } from '../contexts/DataContext.jsx'
+import { exporteerBackup, parseBackup } from '../utils/backup.js'
 
 function Sectie({ titel, children }) {
   return (
@@ -13,10 +15,15 @@ function Sectie({ titel, children }) {
 }
 
 export default function Settings({ onUitloggen }) {
+  const { dagboek, tests, importData } = useData()
   const [settings, setSettings] = useState(loadSettings)
   const [opgeslagen, setOpgeslagen] = useState(false)
   const [resetConfirm, setResetConfirm] = useState(false)
   const [toonApiKey, setToonApiKey] = useState(false)
+  const [importStatus, setImportStatus] = useState(null) // null | 'bezig' | 'preview' | 'fout'
+  const [importFout, setImportFout] = useState('')
+  const [importPreview, setImportPreview] = useState(null) // { dagboek, tests, geexporteerd }
+  const bestandRef = useRef(null)
 
   function sla(key, value) {
     const nieuw = { ...settings, [key]: value }
@@ -31,8 +38,135 @@ export default function Settings({ onUitloggen }) {
     window.location.reload()
   }
 
+  async function handleExport() {
+    try {
+      await exporteerBackup(dagboek, tests)
+    } catch (err) {
+      alert(`Export mislukt: ${err.message}`)
+    }
+  }
+
+  function handleImportBestand(e) {
+    const bestand = e.target.files?.[0]
+    if (!bestand) return
+    setImportStatus('bezig')
+    setImportFout('')
+    const reader = new FileReader()
+    reader.onload = ev => {
+      try {
+        const parsed = parseBackup(ev.target.result)
+        setImportPreview(parsed)
+        setImportStatus('preview')
+      } catch (err) {
+        setImportFout(err.message)
+        setImportStatus('fout')
+      }
+    }
+    reader.onerror = () => {
+      setImportFout('Kan bestand niet lezen.')
+      setImportStatus('fout')
+    }
+    reader.readAsText(bestand)
+    // Reset input so same file can be re-selected
+    e.target.value = ''
+  }
+
+  function bevestigImport() {
+    importData(importPreview.dagboek, importPreview.tests)
+    setImportStatus(null)
+    setImportPreview(null)
+    setOpgeslagen(true)
+    setTimeout(() => setOpgeslagen(false), 2000)
+  }
+
+  function annuleerImport() {
+    setImportStatus(null)
+    setImportPreview(null)
+    setImportFout('')
+  }
+
   return (
     <div className="px-4 pt-4 pb-28 space-y-5">
+
+      {/* Backup & herstel */}
+      <Sectie titel="Backup & herstel">
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">
+            Exporteer je data als JSON-bestand en bewaar het veilig. Bij een nieuw apparaat of
+            na het wissen van de app kun je de backup herladen.
+          </p>
+          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+            Let op: het backup-bestand is <strong>niet versleuteld</strong>. Bewaar het op een veilige plek.
+          </p>
+
+          {/* Export */}
+          <button onClick={handleExport} className="btn-secondary w-full text-sm flex items-center justify-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Backup exporteren ({dagboek.length} entries, {tests.length} tests)
+          </button>
+
+          {/* Import */}
+          {importStatus === null && (
+            <>
+              <input
+                ref={bestandRef}
+                type="file"
+                accept=".json,application/json"
+                className="hidden"
+                onChange={handleImportBestand}
+              />
+              <button
+                onClick={() => bestandRef.current?.click()}
+                className="btn-secondary w-full text-sm flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
+                </svg>
+                Backup herladen
+              </button>
+            </>
+          )}
+
+          {importStatus === 'bezig' && (
+            <p className="text-xs text-slate-500 text-center py-2">Bestand inlezen...</p>
+          )}
+
+          {importStatus === 'fout' && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+              <p className="text-sm font-semibold text-red-700">Fout bij inladen</p>
+              <p className="text-xs text-red-600">{importFout}</p>
+              <button onClick={annuleerImport} className="btn-secondary text-sm">Sluiten</button>
+            </div>
+          )}
+
+          {importStatus === 'preview' && importPreview && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-blue-800">Backup gevonden</p>
+              <ul className="text-xs text-blue-700 space-y-0.5">
+                <li>{importPreview.dagboek.length} dagboekentries</li>
+                <li>{importPreview.tests.length} NASA Lean Tests</li>
+                {importPreview.geexporteerd && (
+                  <li>Geëxporteerd op {new Date(importPreview.geexporteerd).toLocaleDateString('nl-NL', {
+                    day: 'numeric', month: 'long', year: 'numeric',
+                  })}</li>
+                )}
+              </ul>
+              <p className="text-xs text-blue-600">
+                Dit vervangt alle huidige data. Maak eerst een export als je huidige data wilt bewaren.
+              </p>
+              <div className="flex gap-2">
+                <button onClick={annuleerImport} className="btn-secondary flex-1 text-sm">Annuleren</button>
+                <button onClick={bevestigImport} className="btn-primary flex-1 text-sm">Herladen</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Sectie>
+
       {/* Claude API */}
       <Sectie titel="Claude API (screenshot-analyse)">
         <div className="space-y-3">
