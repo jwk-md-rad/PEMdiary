@@ -39,7 +39,7 @@ export default function ExportPDF({ onSluiten }) {
     .reverse()
     .map(e => ({
       datum: fmtDatum(e.datum),
-      Orthostatisch: e.orthostatisch,
+      Orthostatisch: 6 - e.orthostatisch,  // omgekeerd: hoog = weinig klachten
       Energie: e.energie,
       Slaap: e.slaap,
     }))
@@ -164,7 +164,7 @@ export default function ExportPDF({ onSluiten }) {
                 </LineChart>
               </ResponsiveContainer>
               <p className="text-xs text-slate-400 mt-1">
-                Orthostatisch: 1 = ernstig, 5 = geen klachten · Energie &amp; Slaap: 1 = slecht, 5 = goed
+                Alle lijnen: hoog = goed · Orthostatisch is omgekeerd weergegeven (5 = geen klachten)
               </p>
             </section>
           )}

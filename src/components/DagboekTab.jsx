@@ -93,7 +93,7 @@ function TrendGrafiek({ dagboek }) {
   if (dagboek.length < 2) return null
   const data = dagboek.slice(0, 14).reverse().map(e => ({
     datum: formatDatumKort(e.datum),
-    ortho: e.orthostatisch,
+    ortho: 6 - e.orthostatisch,   // omgekeerd: 1 (geen klachten) → 5 (hoog = goed)
     energie: e.energie,
     slaap: e.slaap,
   }))
@@ -108,7 +108,10 @@ function TrendGrafiek({ dagboek }) {
           <YAxis domain={[1, 5]} ticks={[1, 2, 3, 4, 5]} tick={{ fontSize: 9 }} />
           <Tooltip
             contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
-            formatter={(val, name) => [val, name === 'ortho' ? 'Orthostatisch' : name === 'energie' ? 'Energie' : 'Slaap']}
+            formatter={(val, name) => {
+              if (name === 'ortho') return [6 - val, 'Orthostatisch']
+              return [val, name === 'energie' ? 'Energie' : 'Slaap']
+            }}
           />
           <Line type="monotone" dataKey="ortho"   stroke="#ef4444" strokeWidth={2} dot={false} connectNulls />
           <Line type="monotone" dataKey="energie" stroke="#16a34a" strokeWidth={2} dot={false} connectNulls />
