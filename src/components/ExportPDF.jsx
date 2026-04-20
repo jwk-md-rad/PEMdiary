@@ -13,6 +13,29 @@ function fmtDatumLang(iso) {
   return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+function pearson(xs, ys) {
+  const n = xs.length
+  if (n < 5) return null
+  const mx = xs.reduce((a, b) => a + b, 0) / n
+  const my = ys.reduce((a, b) => a + b, 0) / n
+  let num = 0, dx2 = 0, dy2 = 0
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx, dy = ys[i] - my
+    num += dx * dy; dx2 += dx * dx; dy2 += dy * dy
+  }
+  if (dx2 === 0 || dy2 === 0) return null
+  return Math.round(num / Math.sqrt(dx2 * dy2) * 100) / 100
+}
+
+function rLabel(r) {
+  if (r === null) return { tekst: '—', kleur: '#94a3b8' }
+  const a = Math.abs(r)
+  const teken = r > 0 ? '+' : ''
+  const sterkte = a >= 0.6 ? 'sterk' : a >= 0.3 ? 'matig' : 'zwak'
+  const kleur = a >= 0.6 ? '#1d4ed8' : a >= 0.3 ? '#374151' : '#94a3b8'
+  return { tekst: `${teken}${r.toFixed(2)} (${sterkte})`, kleur }
+}
+
 export default function ExportPDF({ onSluiten }) {
   const { dagboek, tests } = useData()
 
@@ -43,6 +66,30 @@ export default function ExportPDF({ onSluiten }) {
       Energie: e.energie,
       Slaap: e.slaap,
     }))
+
+  // Correlaties: entries met HR én scores / HRV én scores
+  const hrEntries  = dagboek.filter(e => e.ochtendHR !== '')
+  const hrvEntries = dagboek.filter(e => e.hrv !== '')
+
+  const hrVals  = hrEntries.map(e => Number(e.ochtendHR))
+  const hrvVals = hrvEntries.map(e => Number(e.hrv))
+
+  const cor = {
+    nHR:  hrEntries.length,
+    nHRV: hrvEntries.length,
+    hr: {
+      ortho:   pearson(hrVals,  hrEntries.map(e => e.orthostatisch)),
+      energie: pearson(hrVals,  hrEntries.map(e => e.energie)),
+      slaap:   pearson(hrVals,  hrEntries.map(e => e.slaap)),
+    },
+    hrv: {
+      ortho:   pearson(hrvVals, hrvEntries.map(e => e.orthostatisch)),
+      energie: pearson(hrvVals, hrvEntries.map(e => e.energie)),
+      slaap:   pearson(hrvVals, hrvEntries.map(e => e.slaap)),
+    },
+  }
+
+  const heeftCorrelaties = cor.nHR >= 5 || cor.nHRV >= 5
 
   // NASA tests oldest-first for the table
   const testsChronologisch = [...tests].reverse()
@@ -165,6 +212,65 @@ export default function ExportPDF({ onSluiten }) {
               </ResponsiveContainer>
               <p className="text-xs text-slate-400 mt-1">
                 Alle lijnen: hoog = goed · Orthostatisch is omgekeerd weergegeven (5 = geen klachten)
+              </p>
+            </section>
+          )}
+
+          {/* Correlaties */}
+          {heeftCorrelaties && (
+            <section>
+              <h3 className="text-sm font-semibold text-slate-700 mb-1 print:text-base">
+                Correlaties scores ↔ HR &amp; HRV
+              </h3>
+              <p className="text-xs text-slate-400 mb-3">
+                Pearson r · |r| ≥ 0,6 sterk · 0,3–0,6 matig · &lt;0,3 zwak · minimaal 5 gekoppelde metingen vereist
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="p-2 border border-slate-200 text-left text-slate-600 font-semibold">Score</th>
+                      {cor.nHR >= 5 && (
+                        <th className="p-2 border border-slate-200 text-center text-red-700 font-semibold">
+                          Ochtend HR (n={cor.nHR})
+                        </th>
+                      )}
+                      {cor.nHRV >= 5 && (
+                        <th className="p-2 border border-slate-200 text-center text-purple-700 font-semibold">
+                          HRV (n={cor.nHRV})
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { key: 'ortho',   label: 'Orthostatisch *', noot: true },
+                      { key: 'energie', label: 'Energie' },
+                      { key: 'slaap',   label: 'Slaap' },
+                    ].map(({ key, label }) => (
+                      <tr key={key} className="even:bg-slate-50">
+                        <td className="p-2 border border-slate-200 text-slate-700 font-medium">{label}</td>
+                        {cor.nHR >= 5 && (() => {
+                          const { tekst, kleur } = rLabel(cor.hr[key])
+                          return (
+                            <td className="p-2 border border-slate-200 text-center font-mono"
+                                style={{ color: kleur }}>{tekst}</td>
+                          )
+                        })()}
+                        {cor.nHRV >= 5 && (() => {
+                          const { tekst, kleur } = rLabel(cor.hrv[key])
+                          return (
+                            <td className="p-2 border border-slate-200 text-center font-mono"
+                                style={{ color: kleur }}>{tekst}</td>
+                          )
+                        })()}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                * Orthostatisch: score 1 = geen klachten, 5 = ernstig — positieve r met HR betekent: hogere HR ging samen met meer klachten.
               </p>
             </section>
           )}
