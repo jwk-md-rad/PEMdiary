@@ -91,6 +91,44 @@ export default function ExportPDF({ onSluiten }) {
 
   const heeftCorrelaties = cor.nHR >= 5 || cor.nHRV >= 5
 
+  // Dienst analyse
+  const DIENST_VOLGORDE = [
+    { key: '',      label: 'Vrij'        },
+    { key: 'dag',   label: 'Dagdienst'   },
+    { key: 'avond', label: 'Avonddienst' },
+  ]
+  const dienstGroepen = { '': [], dag: [], avond: [] }
+  dagboek.forEach(e => { dienstGroepen[e.dienst || ''].push(e) })
+
+  function gem(entries, key) {
+    const vals = entries
+      .map(e => (key === 'ochtendHR' || key === 'hrv') ? Number(e[key]) : e[key])
+      .filter(v => v !== '' && !isNaN(v) && Number(v) > 0)
+    return vals.length >= 2
+      ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10
+      : null
+  }
+
+  // Point-biserial: werkend(1)/vrij(0) vs elke metric
+  function dienstCorr(getVals) {
+    const pairs = dagboek
+      .map(e => ({ bin: (e.dienst && e.dienst !== '') ? 1 : 0, val: getVals(e) }))
+      .filter(p => p.val !== null && p.val !== '' && !isNaN(p.val))
+    if (pairs.length < 5) return null
+    return pearson(pairs.map(p => p.bin), pairs.map(p => Number(p.val)))
+  }
+
+  const corDienst = {
+    n: dagboek.length,
+    ortho:   dienstCorr(e => e.orthostatisch),
+    energie: dienstCorr(e => e.energie),
+    slaap:   dienstCorr(e => e.slaap),
+    hr:      dienstCorr(e => e.ochtendHR !== '' ? e.ochtendHR : null),
+    hrv:     dienstCorr(e => e.hrv      !== '' ? e.hrv       : null),
+  }
+
+  const heeftDienstData = DIENST_VOLGORDE.some(d => dienstGroepen[d.key].length >= 2)
+
   // NASA tests oldest-first for the table
   const testsChronologisch = [...tests].reverse()
 
@@ -271,6 +309,67 @@ export default function ExportPDF({ onSluiten }) {
               </div>
               <p className="text-xs text-slate-400 mt-2">
                 * Orthostatisch: score 1 = geen klachten, 5 = ernstig — positieve r met HR betekent: hogere HR ging samen met meer klachten.
+              </p>
+            </section>
+          )}
+
+          {/* Dienst analyse */}
+          {heeftDienstData && (
+            <section>
+              <h3 className="text-sm font-semibold text-slate-700 mb-1 print:text-base">
+                Dienst — gemiddelden &amp; correlatie
+              </h3>
+              <p className="text-xs text-slate-400 mb-3">
+                Gemiddelde per diensttype · onderaan: correlatie werkend (1) vs. vrij (0)
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50">
+                      <th className="p-2 border border-slate-200 text-left text-slate-600 font-semibold">Dienst</th>
+                      <th className="p-2 border border-slate-200 text-center text-slate-600 font-semibold">n</th>
+                      <th className="p-2 border border-slate-200 text-center text-slate-600 font-semibold">Ortho *</th>
+                      <th className="p-2 border border-slate-200 text-center text-slate-600 font-semibold">Energie</th>
+                      <th className="p-2 border border-slate-200 text-center text-slate-600 font-semibold">Slaap</th>
+                      <th className="p-2 border border-slate-200 text-center text-red-700 font-semibold">HR</th>
+                      <th className="p-2 border border-slate-200 text-center text-purple-700 font-semibold">HRV</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {DIENST_VOLGORDE.map(({ key, label }) => {
+                      const groep = dienstGroepen[key]
+                      if (groep.length === 0) return null
+                      return (
+                        <tr key={key} className="even:bg-slate-50">
+                          <td className="p-2 border border-slate-200 font-medium text-slate-700">{label}</td>
+                          <td className="p-2 border border-slate-200 text-center text-slate-500">{groep.length}</td>
+                          <td className="p-2 border border-slate-200 text-center text-slate-600">{gem(groep, 'orthostatisch') ?? '—'}</td>
+                          <td className="p-2 border border-slate-200 text-center text-slate-600">{gem(groep, 'energie')       ?? '—'}</td>
+                          <td className="p-2 border border-slate-200 text-center text-slate-600">{gem(groep, 'slaap')         ?? '—'}</td>
+                          <td className="p-2 border border-slate-200 text-center text-slate-600">{gem(groep, 'ochtendHR')     ?? '—'}</td>
+                          <td className="p-2 border border-slate-200 text-center text-slate-600">{gem(groep, 'hrv')           ?? '—'}</td>
+                        </tr>
+                      )
+                    })}
+                    {/* Correlation row */}
+                    {corDienst.n >= 5 && (
+                      <tr className="border-t-2 border-slate-300 bg-blue-50">
+                        <td className="p-2 border border-slate-200 font-semibold text-blue-800" colSpan={2}>r werkend vs. vrij</td>
+                        {[corDienst.ortho, corDienst.energie, corDienst.slaap, corDienst.hr, corDienst.hrv].map((r, i) => {
+                          const { tekst, kleur } = rLabel(r)
+                          return (
+                            <td key={i} className="p-2 border border-slate-200 text-center font-mono text-xs"
+                                style={{ color: kleur }}>{tekst}</td>
+                          )
+                        })}
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                * Orthostatisch 1 = geen klachten, 5 = ernstig.
               </p>
             </section>
           )}
