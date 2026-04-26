@@ -115,6 +115,27 @@ export default function DagboekForm({ entry, onOpgeslagen, onAnnuleren }) {
             />
           </div>
 
+          {/* Dienst */}
+          <div>
+            <label className="label">Dienst</label>
+            <div className="flex gap-2">
+              {[['', 'Vrij'], ['dag', 'Dagdienst'], ['avond', 'Avonddienst']].map(([val, label]) => (
+                <button
+                  type="button"
+                  key={val}
+                  onClick={() => set('dienst', val)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors ${
+                    (formData.dienst || '') === val
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* HR & HRV */}
           <div className="grid grid-cols-2 gap-3">
             <div>

@@ -6,6 +6,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import DagboekForm from './DagboekForm.jsx'
 import NASALeanTest from './NASALeanTest.jsx'
 import ExportPDF from './ExportPDF.jsx'
+import BulkBewerken from './BulkBewerken.jsx'
 
 function ScoreDot({ score, type }) {
   const kleur = type === 'orthostatisch' ? scoreKleurOrtho(score) : scoreKleurPositief(score)
@@ -24,9 +25,13 @@ function EntryKaart({ entry, onBewerken }) {
     <div className={`bg-white border rounded-xl p-4 space-y-3 ${isVandaag ? 'border-blue-300 shadow-sm' : 'border-slate-200'}`}>
       <div className="flex items-center justify-between">
         <div>
-          <p className={`text-sm font-semibold ${isVandaag ? 'text-blue-700' : 'text-slate-800'}`}>
-            {isVandaag ? 'Vandaag' : formatDatumKort(entry.datum)}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className={`text-sm font-semibold ${isVandaag ? 'text-blue-700' : 'text-slate-800'}`}>
+              {isVandaag ? 'Vandaag' : formatDatumKort(entry.datum)}
+            </p>
+            {entry.dienst === 'dag'   && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Dag</span>}
+            {entry.dienst === 'avond' && <span className="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full">Avond</span>}
+          </div>
           {entry.ochtendHR && (
             <p className="text-xs text-slate-400">HR {entry.ochtendHR} bpm{entry.hrv ? ` · HRV ${entry.hrv}` : ''}</p>
           )}
@@ -134,6 +139,7 @@ export default function DagboekTab() {
   const [toonForm, setToonForm] = useState(false)
   const [toonTest, setToonTest] = useState(false)
   const [toonExport, setToonExport] = useState(false)
+  const [toonBulk, setToonBulk] = useState(false)
   const [bewerkEntry, setBewerkEntry] = useState(null)
 
   const today = vandaag()
@@ -153,8 +159,20 @@ export default function DagboekTab() {
 
   return (
     <div className="px-4 pt-4 pb-28 space-y-4">
-      {/* Export button row */}
-      <div className="flex justify-end">
+      {/* Action button row */}
+      <div className="flex justify-end gap-2">
+        {dagboek.length > 0 && (
+          <button
+            onClick={() => setToonBulk(true)}
+            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Bulk bewerken
+          </button>
+        )}
         <button
           onClick={() => setToonExport(true)}
           className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
@@ -274,6 +292,9 @@ export default function DagboekTab() {
       )}
       {toonExport && (
         <ExportPDF onSluiten={() => setToonExport(false)} />
+      )}
+      {toonBulk && (
+        <BulkBewerken onSluiten={() => setToonBulk(false)} />
       )}
     </div>
   )

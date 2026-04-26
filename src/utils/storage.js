@@ -11,6 +11,7 @@ export function createLeegEntry(datum) {
     slaap: 3,
     ochtendHR: '',
     hrv: '',
+    dienst: '',
     notities: '',
   }
 }
