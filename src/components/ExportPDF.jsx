@@ -91,43 +91,61 @@ export default function ExportPDF({ onSluiten }) {
 
   const heeftCorrelaties = cor.nHR >= 5 || cor.nHRV >= 5
 
-  // Dienst analyse
+  // Dienst analyse — lag-1: dienst dag N → metrics dag N+1
   const DIENST_VOLGORDE = [
     { key: '',      label: 'Vrij'        },
     { key: 'dag',   label: 'Dagdienst'   },
     { key: 'avond', label: 'Avonddienst' },
   ]
-  const dienstGroepen = { '': [], dag: [], avond: [] }
-  dagboek.forEach(e => { dienstGroepen[e.dienst || ''].push(e) })
 
-  function gem(entries, key) {
-    const vals = entries
-      .map(e => (key === 'ochtendHR' || key === 'hrv') ? Number(e[key]) : e[key])
-      .filter(v => v !== '' && !isNaN(v) && Number(v) > 0)
+  // Build consecutive-day pairs (only days that directly follow each other)
+  const chronologisch = [...dagboek].reverse() // oldest first
+  const lagPairs = []
+  for (let i = 0; i < chronologisch.length - 1; i++) {
+    const dagN   = chronologisch[i]
+    const dagN1  = chronologisch[i + 1]
+    const msVerschil = new Date(dagN1.datum + 'T00:00:00') - new Date(dagN.datum + 'T00:00:00')
+    if (Math.round(msVerschil / 86400000) !== 1) continue // skip non-consecutive
+    lagPairs.push({
+      dienst:  dagN.dienst || '',
+      werkend: (dagN.dienst && dagN.dienst !== '') ? 1 : 0,
+      orthostatisch: dagN1.orthostatisch,
+      energie:       dagN1.energie,
+      slaap:         dagN1.slaap,
+      ochtendHR:     dagN1.ochtendHR,
+      hrv:           dagN1.hrv,
+    })
+  }
+
+  const lagGroepen = { '': [], dag: [], avond: [] }
+  lagPairs.forEach(p => { lagGroepen[p.dienst].push(p) })
+
+  function gem(items, key) {
+    const vals = items
+      .map(p => Number(p[key]))
+      .filter(v => !isNaN(v) && v > 0)
     return vals.length >= 2
       ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10
       : null
   }
 
-  // Point-biserial: werkend(1)/vrij(0) vs elke metric
-  function dienstCorr(getVals) {
-    const pairs = dagboek
-      .map(e => ({ bin: (e.dienst && e.dienst !== '') ? 1 : 0, val: getVals(e) }))
-      .filter(p => p.val !== null && p.val !== '' && !isNaN(p.val))
+  // Point-biserial: werkend(0/1) vs next-day metric
+  function dienstCorr(key) {
+    const pairs = lagPairs.filter(p => p[key] !== '' && !isNaN(Number(p[key])) && Number(p[key]) > 0)
     if (pairs.length < 5) return null
-    return pearson(pairs.map(p => p.bin), pairs.map(p => Number(p.val)))
+    return pearson(pairs.map(p => p.werkend), pairs.map(p => Number(p[key])))
   }
 
   const corDienst = {
-    n: dagboek.length,
-    ortho:   dienstCorr(e => e.orthostatisch),
-    energie: dienstCorr(e => e.energie),
-    slaap:   dienstCorr(e => e.slaap),
-    hr:      dienstCorr(e => e.ochtendHR !== '' ? e.ochtendHR : null),
-    hrv:     dienstCorr(e => e.hrv      !== '' ? e.hrv       : null),
+    n:       lagPairs.length,
+    ortho:   dienstCorr('orthostatisch'),
+    energie: dienstCorr('energie'),
+    slaap:   dienstCorr('slaap'),
+    hr:      dienstCorr('ochtendHR'),
+    hrv:     dienstCorr('hrv'),
   }
 
-  const heeftDienstData = DIENST_VOLGORDE.some(d => dienstGroepen[d.key].length >= 2)
+  const heeftDienstData = lagPairs.length >= 5
 
   // NASA tests oldest-first for the table
   const testsChronologisch = [...tests].reverse()
@@ -317,10 +335,10 @@ export default function ExportPDF({ onSluiten }) {
           {heeftDienstData && (
             <section>
               <h3 className="text-sm font-semibold text-slate-700 mb-1 print:text-base">
-                Dienst — gemiddelden &amp; correlatie
+                Dienst dag N → volgende dag (lag-1)
               </h3>
               <p className="text-xs text-slate-400 mb-3">
-                Gemiddelde per diensttype · onderaan: correlatie werkend (1) vs. vrij (0)
+                Gemiddelde scores/HR/HRV op de dag <em>na</em> het diensttype · {lagPairs.length} opeenvolgende dagenparen
               </p>
 
               <div className="overflow-x-auto">
@@ -338,7 +356,7 @@ export default function ExportPDF({ onSluiten }) {
                   </thead>
                   <tbody>
                     {DIENST_VOLGORDE.map(({ key, label }) => {
-                      const groep = dienstGroepen[key]
+                      const groep = lagGroepen[key]
                       if (groep.length === 0) return null
                       return (
                         <tr key={key} className="even:bg-slate-50">
@@ -369,7 +387,7 @@ export default function ExportPDF({ onSluiten }) {
                 </table>
               </div>
               <p className="text-xs text-slate-400 mt-2">
-                * Orthostatisch 1 = geen klachten, 5 = ernstig.
+                * Orthostatisch 1 = geen klachten, 5 = ernstig · r werkend vs. vrij: positief = werkdag voorspelt hogere score volgende dag.
               </p>
             </section>
           )}
