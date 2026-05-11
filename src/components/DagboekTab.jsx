@@ -94,13 +94,29 @@ function TestKaart({ test }) {
   )
 }
 
+function rollingAvg(arr, key, w = 7) {
+  return arr.map((_, i) => {
+    const window = arr.slice(Math.max(0, i - w + 1), i + 1)
+    const vals = window.map(x => x[key]).filter(v => v != null && !isNaN(v))
+    return vals.length >= 2
+      ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10
+      : null
+  })
+}
+
 function TrendGrafiek({ dagboek }) {
   if (dagboek.length < 2) return null
-  const data = dagboek.slice(0, 14).reverse().map(e => ({
+  const raw = dagboek.slice(0, 14).reverse().map(e => ({
     datum: formatDatumKort(e.datum),
-    ortho: 6 - e.orthostatisch,   // omgekeerd: 1 (geen klachten) → 5 (hoog = goed)
+    ortho: 6 - e.orthostatisch,
     energie: e.energie,
     slaap: e.slaap,
+  }))
+  const oAvg = rollingAvg(raw, 'ortho')
+  const eAvg = rollingAvg(raw, 'energie')
+  const sAvg = rollingAvg(raw, 'slaap')
+  const data = raw.map((d, i) => ({
+    ...d, ortho_7d: oAvg[i], energie_7d: eAvg[i], slaap_7d: sAvg[i],
   }))
 
   return (
@@ -114,13 +130,19 @@ function TrendGrafiek({ dagboek }) {
           <Tooltip
             contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
             formatter={(val, name) => {
-              if (name === 'ortho') return [6 - val, 'Orthostatisch']
+              if (name === 'ortho')      return [6 - val, 'Orthostatisch']
+              if (name === 'ortho_7d')   return [6 - val, 'Ortho 7d gem.']
+              if (name === 'energie_7d') return [val, 'Energie 7d gem.']
+              if (name === 'slaap_7d')   return [val, 'Slaap 7d gem.']
               return [val, name === 'energie' ? 'Energie' : 'Slaap']
             }}
           />
-          <Line type="monotone" dataKey="ortho"   stroke="#ef4444" strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="energie" stroke="#16a34a" strokeWidth={2} dot={false} connectNulls />
-          <Line type="monotone" dataKey="slaap"   stroke="#2563eb" strokeWidth={2} dot={false} connectNulls />
+          <Line type="monotone" dataKey="ortho"   stroke="#ef4444" strokeWidth={1.5} dot={false} connectNulls />
+          <Line type="monotone" dataKey="energie" stroke="#16a34a" strokeWidth={1.5} dot={false} connectNulls />
+          <Line type="monotone" dataKey="slaap"   stroke="#2563eb" strokeWidth={1.5} dot={false} connectNulls />
+          <Line type="monotone" dataKey="ortho_7d"   stroke="#ef4444" strokeWidth={2.5} strokeDasharray="4 2" dot={false} connectNulls legendType="none" />
+          <Line type="monotone" dataKey="energie_7d" stroke="#16a34a" strokeWidth={2.5} strokeDasharray="4 2" dot={false} connectNulls legendType="none" />
+          <Line type="monotone" dataKey="slaap_7d"   stroke="#2563eb" strokeWidth={2.5} strokeDasharray="4 2" dot={false} connectNulls legendType="none" />
         </LineChart>
       </ResponsiveContainer>
       <div className="flex gap-4 mt-2 justify-center">

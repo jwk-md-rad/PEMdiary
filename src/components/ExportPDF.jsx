@@ -36,6 +36,16 @@ function rLabel(r) {
   return { tekst: `${teken}${r.toFixed(2)} (${sterkte})`, kleur }
 }
 
+function rollingAvg(arr, key, w = 7) {
+  return arr.map((_, i) => {
+    const window = arr.slice(Math.max(0, i - w + 1), i + 1)
+    const vals = window.map(x => x[key]).filter(v => v !== null && v !== undefined && !isNaN(v))
+    return vals.length >= 2
+      ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 10) / 10
+      : null
+  })
+}
+
 export default function ExportPDF({ onSluiten }) {
   const { dagboek, tests } = useData()
 
@@ -56,16 +66,30 @@ export default function ExportPDF({ onSluiten }) {
   const hasHR  = hrData.some(d => d.HR  !== null)
   const hasHRV = hrData.some(d => d.HRV !== null)
 
+  // Add 7-day rolling averages to HR/HRV data
+  const hrAvg  = rollingAvg(hrData, 'HR')
+  const hrvAvg = rollingAvg(hrData, 'HRV')
+  const hrDataFull = hrData.map((d, i) => ({ ...d, HR_7d: hrAvg[i], HRV_7d: hrvAvg[i] }))
+
   // Score trend — max 60 entries, oldest first
-  const scoreData = [...dagboek]
+  const scoreDataRaw = [...dagboek]
     .slice(0, 60)
     .reverse()
     .map(e => ({
       datum: fmtDatum(e.datum),
-      Orthostatisch: 6 - e.orthostatisch,  // omgekeerd: hoog = weinig klachten
+      Orthostatisch: 6 - e.orthostatisch,
       Energie: e.energie,
       Slaap: e.slaap,
     }))
+  const orthoAvg  = rollingAvg(scoreDataRaw, 'Orthostatisch')
+  const energieAvg = rollingAvg(scoreDataRaw, 'Energie')
+  const slaapAvg  = rollingAvg(scoreDataRaw, 'Slaap')
+  const scoreData = scoreDataRaw.map((d, i) => ({
+    ...d,
+    Orthostatisch_7d: orthoAvg[i],
+    Energie_7d:       energieAvg[i],
+    Slaap_7d:         slaapAvg[i],
+  }))
 
   // Correlaties: entries met HR én scores / HRV én scores
   const hrEntries  = dagboek.filter(e => e.ochtendHR !== '')
@@ -197,18 +221,18 @@ export default function ExportPDF({ onSluiten }) {
                 Ochtend hartslag (bpm)
               </h3>
               <ResponsiveContainer width="100%" height={190}>
-                <LineChart data={hrData} margin={{ top: 5, right: 12, left: -10, bottom: 5 }}>
+                <LineChart data={hrDataFull} margin={{ top: 5, right: 12, left: -10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="datum" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
                   <Tooltip
                     contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                    formatter={v => [`${v} bpm`, 'HR']}
+                    formatter={(v, name) => [`${v} bpm`, name === 'HR_7d' ? '7d gem.' : 'HR']}
                   />
-                  <Line
-                    type="monotone" dataKey="HR" stroke="#ef4444" strokeWidth={2}
-                    dot={{ r: 3, fill: '#ef4444' }} connectNulls name="HR (bpm)"
-                  />
+                  <Line type="monotone" dataKey="HR" stroke="#ef4444" strokeWidth={1.5}
+                    dot={{ r: 2, fill: '#ef4444' }} connectNulls name="HR (bpm)" />
+                  <Line type="monotone" dataKey="HR_7d" stroke="#ef4444" strokeWidth={2.5}
+                    strokeDasharray="5 3" dot={false} connectNulls legendType="none" />
                 </LineChart>
               </ResponsiveContainer>
             </section>
@@ -221,18 +245,18 @@ export default function ExportPDF({ onSluiten }) {
                 HRV (ms)
               </h3>
               <ResponsiveContainer width="100%" height={190}>
-                <LineChart data={hrData} margin={{ top: 5, right: 12, left: -10, bottom: 5 }}>
+                <LineChart data={hrDataFull} margin={{ top: 5, right: 12, left: -10, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                   <XAxis dataKey="datum" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
                   <YAxis tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
                   <Tooltip
                     contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
-                    formatter={v => [`${v} ms`, 'HRV']}
+                    formatter={(v, name) => [`${v} ms`, name === 'HRV_7d' ? '7d gem.' : 'HRV']}
                   />
-                  <Line
-                    type="monotone" dataKey="HRV" stroke="#8b5cf6" strokeWidth={2}
-                    dot={{ r: 3, fill: '#8b5cf6' }} connectNulls name="HRV (ms)"
-                  />
+                  <Line type="monotone" dataKey="HRV" stroke="#8b5cf6" strokeWidth={1.5}
+                    dot={{ r: 2, fill: '#8b5cf6' }} connectNulls name="HRV (ms)" />
+                  <Line type="monotone" dataKey="HRV_7d" stroke="#8b5cf6" strokeWidth={2.5}
+                    strokeDasharray="5 3" dot={false} connectNulls legendType="none" />
                 </LineChart>
               </ResponsiveContainer>
             </section>
@@ -261,13 +285,16 @@ export default function ExportPDF({ onSluiten }) {
                     contentStyle={{ fontSize: 11, borderRadius: 8, border: '1px solid #e2e8f0' }}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Line type="monotone" dataKey="Orthostatisch" stroke="#ef4444" strokeWidth={2} dot={false} connectNulls />
-                  <Line type="monotone" dataKey="Energie"       stroke="#16a34a" strokeWidth={2} dot={false} connectNulls />
-                  <Line type="monotone" dataKey="Slaap"         stroke="#2563eb" strokeWidth={2} dot={false} connectNulls />
+                  <Line type="monotone" dataKey="Orthostatisch" stroke="#ef4444" strokeWidth={1.5} dot={false} connectNulls />
+                  <Line type="monotone" dataKey="Energie"       stroke="#16a34a" strokeWidth={1.5} dot={false} connectNulls />
+                  <Line type="monotone" dataKey="Slaap"         stroke="#2563eb" strokeWidth={1.5} dot={false} connectNulls />
+                  <Line type="monotone" dataKey="Orthostatisch_7d" stroke="#ef4444" strokeWidth={2.5} strokeDasharray="5 3" dot={false} connectNulls legendType="none" />
+                  <Line type="monotone" dataKey="Energie_7d"       stroke="#16a34a" strokeWidth={2.5} strokeDasharray="5 3" dot={false} connectNulls legendType="none" />
+                  <Line type="monotone" dataKey="Slaap_7d"         stroke="#2563eb" strokeWidth={2.5} strokeDasharray="5 3" dot={false} connectNulls legendType="none" />
                 </LineChart>
               </ResponsiveContainer>
               <p className="text-xs text-slate-400 mt-1">
-                Alle lijnen: hoog = goed · Orthostatisch is omgekeerd weergegeven (5 = geen klachten)
+                Alle lijnen: hoog = goed · Orthostatisch omgekeerd (5 = geen klachten) · gestippeld = 7-daags gemiddelde
               </p>
             </section>
           )}
