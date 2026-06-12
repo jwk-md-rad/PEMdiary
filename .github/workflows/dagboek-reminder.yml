@@ -1,8 +1,6 @@
 name: Dagboek herinnering
 
 on:
-  schedule:
-    - cron: '0 17 * * *'  # 19:00 zomertijd (CEST) / 18:00 wintertijd (CET)
   workflow_dispatch:        # handmatig starten via Actions tab (voor testen)
 
 jobs:
